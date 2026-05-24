@@ -2,7 +2,9 @@ import { NextResponse } from "next/server"
 
 import { getCurrentAdminUser } from "@/lib/admin/auth"
 import { roleCan } from "@/lib/admin/permissions"
+import { enforceAdminWriteRateLimit } from "@/lib/admin/rate-limit"
 import { getAdminRepository } from "@/lib/admin/repository"
+import { RateLimitError } from "@/lib/rate-limit"
 import type { PublishableStatus } from "@/types/admin"
 
 const allowedStatuses: PublishableStatus[] = [
@@ -30,6 +32,16 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  try {
+    await enforceAdminWriteRateLimit(user.id)
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 })
+    }
+
+    throw error
   }
 
   const body: unknown = await request.json().catch(() => null)

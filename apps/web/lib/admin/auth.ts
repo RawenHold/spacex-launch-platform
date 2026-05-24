@@ -2,6 +2,9 @@ import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
 import { roleCanAny } from "@/lib/admin/permissions"
+import { rolePermissions } from "@/lib/admin/permissions"
+import { adminUserFromDb } from "@/lib/admin/prisma-mappers"
+import { prisma } from "@/lib/db"
 import type { AdminPermission, AdminRole, AdminUser } from "@/types/admin"
 
 export async function getCurrentAdminUser(): Promise<AdminUser | null> {
@@ -11,13 +14,16 @@ export async function getCurrentAdminUser(): Promise<AdminUser | null> {
     return null
   }
 
+  const dbUser = await prisma.adminUser.findUnique({ where: { id: session.user.id } })
+
+  if (!dbUser || dbUser.status !== "ACTIVE" || !dbUser.isHuman) {
+    return null
+  }
+
+  const user = adminUserFromDb(dbUser)
   return {
-    id: session.user.id,
-    email: session.user.email ?? undefined,
-    name: session.user.name ?? "Admin user",
-    role: session.user.role,
-    permissions: session.user.permissions ?? [],
-    isHuman: session.user.role !== "ai_moderator",
+    ...user,
+    permissions: rolePermissions[user.role],
   }
 }
 

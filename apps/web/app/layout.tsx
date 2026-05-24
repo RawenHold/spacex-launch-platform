@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   },
   description:
     "A bilingual mock MVP for a SpaceX-focused launch platform with mission timelines, countdowns, livestream embeds, and source transparency.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 }
 
 export default function RootLayout({

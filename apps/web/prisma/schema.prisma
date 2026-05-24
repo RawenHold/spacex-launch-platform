@@ -14,6 +14,12 @@ enum AdminRole {
   AI_MODERATOR @map("ai_moderator")
 }
 
+enum AdminUserStatus {
+  ACTIVE   @map("active")
+  DISABLED @map("disabled")
+  INVITED  @map("invited")
+}
+
 enum DataConfidenceLevel {
   OFFICIAL_CONFIRMED    @map("official_confirmed")
   ADMIN_VERIFIED        @map("admin_verified")
@@ -141,6 +147,7 @@ enum AuditAction {
   ARCHIVE           @map("archive")
   OVERRIDE          @map("override")
   SIGN_IN           @map("sign_in")
+  RATE_LIMIT        @map("rate_limit")
 }
 
 enum FAQGroup {
@@ -158,6 +165,7 @@ model AdminUser {
   email        String?   @unique
   name         String
   role         AdminRole
+  status       AdminUserStatus @default(ACTIVE)
   passwordHash String?   @map("password_hash")
   isHuman      Boolean   @default(true) @map("is_human")
   lastActiveAt DateTime? @map("last_active_at")

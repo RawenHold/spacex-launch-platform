@@ -30,6 +30,7 @@ export const adminUsers: AdminUser[] = [
     name: "Dev Admin",
     email: "admin@example.local",
     role: "admin",
+    status: "active",
     isHuman: true,
     lastActiveAt: "2026-05-24T08:45:00.000Z",
     permissions: [
@@ -48,6 +49,7 @@ export const adminUsers: AdminUser[] = [
     name: "Editorial Operator",
     email: "editor@example.local",
     role: "editor",
+    status: "active",
     isHuman: true,
     permissions: ["edit_content", "manage_timeline", "generate_ai_drafts"],
   },
@@ -56,6 +58,7 @@ export const adminUsers: AdminUser[] = [
     name: "Source Researcher",
     email: "researcher@example.local",
     role: "researcher",
+    status: "active",
     isHuman: true,
     permissions: ["manage_sources", "generate_ai_drafts"],
   },
@@ -63,6 +66,7 @@ export const adminUsers: AdminUser[] = [
     id: "ai-moderator",
     name: "AI Moderator",
     role: "ai_moderator",
+    status: "active",
     isHuman: false,
     permissions: ["generate_ai_drafts"],
   },
@@ -261,6 +265,7 @@ export const adminArticles: AdminArticle[] = articles.map((article, index) => ({
 
 export const adminNews: AdminNewsItem[] = newsItems.map((item, index) => ({
   id: item.id,
+  slug: item.slug,
   title: item.title,
   summary: item.summary,
   sourceUrl: item.sourceUrl,

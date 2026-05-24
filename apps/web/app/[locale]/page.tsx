@@ -12,13 +12,15 @@ import { LaunchCard } from "@/components/launch/launch-card"
 import { MissionTimeline } from "@/components/launch/mission-timeline"
 import { PageHero } from "@/components/shared/page-hero"
 import { SectionHeader } from "@/components/shared/section-header"
+import { DevDataWarning, EmptyState } from "@/components/shared/data-state"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { articles, faqs, newsItems } from "@/data/mock-data"
-import { getPastLaunches, getUpcomingLaunches, getNextLaunch } from "@/lib/launches"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { localize } from "@/lib/i18n/config"
+import { getPublicHomeData } from "@/lib/public/repository"
 import type { Locale } from "@/types/space"
+
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata({
   params,
@@ -40,9 +42,9 @@ export default async function HomePage({
 }) {
   const { locale } = await params
   const dictionary = getDictionary(locale)
-  const nextLaunch = getNextLaunch()
-  const upcoming = getUpcomingLaunches()
-  const past = getPastLaunches()
+  const homeData = await getPublicHomeData()
+  const nextLaunch = homeData.featured
+  const isMockFallback = homeData.source === "mock_fallback"
 
   return (
     <>
@@ -60,7 +62,7 @@ export default async function HomePage({
             </a>
             <Link
               className={buttonVariants({ variant: "outline", size: "lg" })}
-              href={`/${locale}/launches/${nextLaunch.slug}`}
+              href={nextLaunch ? `/${locale}/launches/${nextLaunch.slug}` : `/${locale}/launches/upcoming`}
             >
               {dictionary.common.missionDetails}
               <ArrowRightIcon data-icon="inline-end" />
@@ -70,41 +72,64 @@ export default async function HomePage({
               addedLabel={dictionary.common.reminderAdded}
             />
           </div>
-          <Card>
-            <CardHeader>
-              <p className="mission-eyebrow">{dictionary.home.nextLaunch}</p>
-              <CardTitle>{localize(nextLaunch.missionName, locale)}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Countdown targetUtc={nextLaunch.netUtc} labels={dictionary.countdown} />
-            </CardContent>
-          </Card>
+          {nextLaunch ? (
+            <Card>
+              <CardHeader>
+                <p className="mission-eyebrow">{dictionary.home.nextLaunch}</p>
+                <CardTitle>{localize(nextLaunch.missionName, locale)}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Countdown targetUtc={nextLaunch.netUtc} labels={dictionary.countdown} />
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
       </PageHero>
 
-      <section className="mission-container py-14">
-        <LaunchAnimation2D
-          title={dictionary.detail.animationTitle}
-          description={dictionary.detail.animationDescription}
-          vehicle={nextLaunch.category === "starship" ? "starship" : "falcon"}
-          demo
-        />
-      </section>
+      {isMockFallback ? (
+        <section className="mission-container pt-8">
+          <DevDataWarning />
+        </section>
+      ) : null}
 
-      <section className="mission-container flex flex-col gap-6 py-14" id="watch">
-        <SectionHeader title={dictionary.home.nextLaunch} description={dictionary.common.mockWarning} />
-        <LaunchCard launch={nextLaunch} locale={locale} dictionary={dictionary} />
-      </section>
+      {!nextLaunch ? (
+        <section className="mission-container py-14">
+          <EmptyState
+            title="No published launch yet"
+            description="Publish a launch from the admin panel to populate the public homepage."
+          />
+        </section>
+      ) : null}
 
-      <section className="mission-container flex flex-col gap-6 py-14">
-        <SectionHeader title={dictionary.home.timelinePreview} />
-        <MissionTimeline
-          events={nextLaunch.timeline.slice(0, 5)}
-          locale={locale}
-          dictionary={dictionary}
-          activeIndex={1}
-        />
-      </section>
+      {nextLaunch ? (
+        <section className="mission-container py-14">
+          <LaunchAnimation2D
+            title={dictionary.detail.animationTitle}
+            description={dictionary.detail.animationDescription}
+            vehicle={nextLaunch.category === "starship" ? "starship" : "falcon"}
+            demo
+          />
+        </section>
+      ) : null}
+
+      {nextLaunch ? (
+        <section className="mission-container flex flex-col gap-6 py-14" id="watch">
+          <SectionHeader title={dictionary.home.nextLaunch} description={isMockFallback ? dictionary.common.mockWarning : undefined} />
+          <LaunchCard launch={nextLaunch} locale={locale} dictionary={dictionary} />
+        </section>
+      ) : null}
+
+      {nextLaunch?.timeline.length ? (
+        <section className="mission-container flex flex-col gap-6 py-14">
+          <SectionHeader title={dictionary.home.timelinePreview} />
+          <MissionTimeline
+            events={nextLaunch.timeline.slice(0, 5)}
+            locale={locale}
+            dictionary={dictionary}
+            activeIndex={1}
+          />
+        </section>
+      ) : null}
 
       <section className="mission-container flex flex-col gap-6 py-14">
         <SectionHeader
@@ -113,7 +138,7 @@ export default async function HomePage({
           actionLabel={dictionary.common.moreInformation}
         />
         <div className="grid gap-5 lg:grid-cols-3">
-          {upcoming.slice(0, 3).map((launch) => (
+          {homeData.upcoming.slice(0, 3).map((launch) => (
             <LaunchCard key={launch.id} launch={launch} locale={locale} dictionary={dictionary} />
           ))}
         </div>
@@ -126,7 +151,7 @@ export default async function HomePage({
           actionLabel={dictionary.common.moreInformation}
         />
         <div className="grid gap-5 lg:grid-cols-3">
-          {past.slice(0, 3).map((launch) => (
+          {homeData.past.slice(0, 3).map((launch) => (
             <LaunchCard key={launch.id} launch={launch} locale={locale} dictionary={dictionary} mode="past" />
           ))}
         </div>
@@ -140,7 +165,7 @@ export default async function HomePage({
             actionLabel={dictionary.common.readMore}
           />
           <div className="grid gap-5">
-            {articles.slice(0, 2).map((article) => (
+            {homeData.articles.slice(0, 2).map((article) => (
               <ArticleCard key={article.id} article={article} locale={locale} dictionary={dictionary} />
             ))}
           </div>
@@ -152,7 +177,7 @@ export default async function HomePage({
             actionLabel={dictionary.common.readMore}
           />
           <div className="grid gap-5">
-            {newsItems.map((item) => (
+            {homeData.news.map((item) => (
               <NewsCard key={item.id} item={item} locale={locale} dictionary={dictionary} />
             ))}
           </div>
@@ -165,10 +190,11 @@ export default async function HomePage({
           href={`/${locale}/faq`}
           actionLabel={dictionary.common.moreInformation}
         />
-        <FAQAccordion items={faqs.slice(0, 4)} locale={locale} dictionary={dictionary} />
+        <FAQAccordion items={homeData.faqs.slice(0, 4)} locale={locale} dictionary={dictionary} />
       </section>
 
-      <section className="mission-container py-14">
+      {isMockFallback ? (
+        <section className="mission-container py-14">
         <Card>
           <CardHeader>
             <p className="mission-eyebrow">{dictionary.common.mockNotice}</p>
@@ -178,7 +204,8 @@ export default async function HomePage({
             </CardTitle>
           </CardHeader>
         </Card>
-      </section>
+        </section>
+      ) : null}
     </>
   )
 }

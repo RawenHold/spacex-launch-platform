@@ -1,4 +1,5 @@
 import { FilePlus2, HelpCircle } from "lucide-react"
+import Link from "next/link"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
 import { AdminDataTable } from "@/components/admin/admin-data-table"
@@ -113,6 +114,15 @@ export default async function AdminFAQPage() {
                     Save
                   </button>
                 </form>
+              ),
+            },
+            {
+              key: "actions",
+              label: "Actions",
+              render: (faq) => (
+                <Link href={`/admin/faq/${faq.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  Edit
+                </Link>
               ),
             },
           ]}

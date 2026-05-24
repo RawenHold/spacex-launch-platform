@@ -1,12 +1,14 @@
 import {
   Bot,
   Gauge,
+  ListTree,
   Newspaper,
   Radio,
   Rocket,
   Settings,
   ShieldCheck,
   TableProperties,
+  Users,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -22,6 +24,8 @@ const navItems = [
   { href: "/admin/faq", label: "FAQ", icon: TableProperties },
   { href: "/admin/sources", label: "Sources", icon: ShieldCheck },
   { href: "/admin/ai-drafts", label: "AI drafts", icon: Bot },
+  { href: "/admin/audit", label: "Audit log", icon: ListTree },
+  { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ]
 

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/db"
+import { maskSensitiveJson } from "@/lib/admin/audit-safety"
 import {
   adminUserFromDb,
   aiDraftFromDb,
@@ -17,6 +18,8 @@ import {
   toPrismaPublishable,
 } from "@/lib/admin/prisma-mappers"
 import type {
+  AdminAuditLogEntry,
+  AdminAuditLogFilters,
   AdminArticle,
   AdminDashboardStats,
   AdminFAQItem,
@@ -26,6 +29,7 @@ import type {
   AdminSourceRecord,
   AdminTimelineEvent,
   AdminUser,
+  AdminUserStatus,
   AIDraft,
   AIDraftType,
   ApprovalRecord,
@@ -35,13 +39,23 @@ import type {
 import type { DataConfidenceLevel, LocalizedText } from "@/types/space"
 
 type EntityType =
+  | "admin_user"
   | "launch"
   | "timeline_event"
   | "article"
   | "news_item"
   | "faq_item"
   | "source_record"
+  | "source_conflict"
   | "ai_draft"
+  | "settings"
+
+export interface CreateAdminUserInput {
+  name: string
+  email: string
+  role: Exclude<AdminUser["role"], "ai_moderator">
+  status: AdminUserStatus
+}
 
 export interface CreateAIDraftInput {
   type: AIDraftType
@@ -64,6 +78,25 @@ export interface CreateLaunchInput {
   confidenceLevel: DataConfidenceLevel
 }
 
+export interface UpdateLaunchInput {
+  id: string
+  missionName: LocalizedText
+  slug: string
+  rocketName: string
+  launchPadName: string
+  launchPadLocation: LocalizedText
+  launchDateTimeUtc: Date
+  trajectory: LocalizedText
+  orbit?: string
+  payload: LocalizedText
+  missionDescription: LocalizedText
+  officialUrl?: string
+  youtubeUrlOrVideoId?: string
+  confidenceLevel: DataConfidenceLevel
+  status: AdminLaunchRecord["status"]
+  isFeatured: boolean
+}
+
 export interface CreateTimelineEventInput {
   launchId: string
   type: AdminTimelineEvent["type"]
@@ -73,10 +106,25 @@ export interface CreateTimelineEventInput {
   status: AdminTimelineEvent["status"]
 }
 
+export interface UpdateTimelineEventInput extends CreateTimelineEventInput {
+  id: string
+  sortOrder: number
+}
+
 export interface CreateArticleInput {
   slug: string
   title: LocalizedText
   body: LocalizedText
+  category: string
+}
+
+export interface UpdateArticleInput {
+  id: string
+  slug: string
+  title: LocalizedText
+  body: LocalizedText
+  seoTitle: LocalizedText
+  metaDescription: LocalizedText
   category: string
 }
 
@@ -90,10 +138,29 @@ export interface CreateNewsInput {
   confidenceLevel: DataConfidenceLevel
 }
 
+export interface UpdateNewsInput {
+  id: string
+  slug: string
+  title: LocalizedText
+  summary: LocalizedText
+  sourceName: string
+  sourceUrl?: string
+  publicationDate: Date
+  confidenceLevel: DataConfidenceLevel
+}
+
 export interface CreateFAQInput {
   group: AdminFAQItem["group"]
   question: LocalizedText
   answer: LocalizedText
+}
+
+export interface UpdateFAQInput {
+  id: string
+  group: AdminFAQItem["group"]
+  question: LocalizedText
+  answer: LocalizedText
+  sortOrder: number
 }
 
 export interface CreateSourceInput {
@@ -111,16 +178,42 @@ export interface CreateSourceInput {
   notes?: string
 }
 
+export interface UpdateSourceInput extends CreateSourceInput {
+  id: string
+}
+
 export interface AdminRepository {
   getDashboardStats(): Promise<AdminDashboardStats>
   listUsers(): Promise<AdminUser[]>
+  createAdminUser(input: CreateAdminUserInput, actorId: string): Promise<AdminUser>
+  updateAdminUserRole(id: string, role: AdminUser["role"], actorId: string): Promise<AdminUser>
+  updateAdminUserStatus(
+    id: string,
+    status: AdminUserStatus,
+    actorId: string
+  ): Promise<AdminUser>
+  listAuditLogs(filters?: AdminAuditLogFilters): Promise<AdminAuditLogEntry[]>
+  listAuditActors(): Promise<AdminUser[]>
   listLaunches(): Promise<AdminLaunchRecord[]>
   getLaunchById(id: string): Promise<AdminLaunchRecord | undefined>
+  updateLaunch(input: UpdateLaunchInput, actorId: string): Promise<AdminLaunchRecord>
   listTimelineEvents(launchId: string): Promise<AdminTimelineEvent[]>
+  updateTimelineEvent(
+    input: UpdateTimelineEventInput,
+    actorId: string
+  ): Promise<AdminTimelineEvent>
   listArticles(): Promise<AdminArticle[]>
+  getArticleById(id: string): Promise<AdminArticle | undefined>
+  updateArticle(input: UpdateArticleInput, actorId: string): Promise<AdminArticle>
   listNews(): Promise<AdminNewsItem[]>
+  getNewsById(id: string): Promise<AdminNewsItem | undefined>
+  updateNews(input: UpdateNewsInput, actorId: string): Promise<AdminNewsItem>
   listFAQs(): Promise<AdminFAQItem[]>
+  getFAQById(id: string): Promise<AdminFAQItem | undefined>
+  updateFAQ(input: UpdateFAQInput, actorId: string): Promise<AdminFAQItem>
   listSources(): Promise<AdminSourceRecord[]>
+  getSourceById(id: string): Promise<AdminSourceRecord | undefined>
+  updateSource(input: UpdateSourceInput, actorId: string): Promise<AdminSourceRecord>
   listSourceConflicts(): Promise<SourceConflict[]>
   listAIDrafts(): Promise<AIDraft[]>
   getSettings(): Promise<AdminSettings>
@@ -184,13 +277,16 @@ function localized(value: string): LocalizedText {
 
 function entityTypeToPrisma(value: EntityType) {
   const map = {
+    admin_user: "ADMIN_USER",
     launch: "LAUNCH",
     timeline_event: "TIMELINE_EVENT",
     article: "ARTICLE",
     news_item: "NEWS_ITEM",
     faq_item: "FAQ_ITEM",
     source_record: "SOURCE_RECORD",
+    source_conflict: "SOURCE_CONFLICT",
     ai_draft: "AI_DRAFT",
+    settings: "SETTINGS",
   } as const
 
   return map[value]
@@ -232,6 +328,7 @@ async function writeAudit(
       | "ARCHIVE"
       | "OVERRIDE"
       | "SIGN_IN"
+      | "RATE_LIMIT"
     entityType: ReturnType<typeof entityTypeToPrisma>
     entityId: string
     before?: Prisma.InputJsonValue
@@ -329,6 +426,138 @@ export const prismaAdminRepository: AdminRepository = {
     return users.map(adminUserFromDb)
   },
 
+  async createAdminUser(input, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const user = await tx.adminUser.create({
+        data: {
+          email: input.email.toLowerCase(),
+          name: input.name,
+          role: prismaEnum.role(input.role),
+          status: prismaEnum.userStatus(input.status),
+          isHuman: true,
+        },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "CREATE",
+        entityType: entityTypeToPrisma("admin_user"),
+        entityId: user.id,
+        after: auditJson(user),
+        reason: "Placeholder invited admin user record created. Email invitation is not implemented in MVP.",
+      })
+      return adminUserFromDb(user)
+    })
+  },
+
+  async updateAdminUserRole(id, role, actorId) {
+    if (role === "ai_moderator") {
+      throw new Error("AI Moderator is a system identity and cannot be assigned to a normal login user.")
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.adminUser.findUniqueOrThrow({ where: { id } })
+      const user = await tx.adminUser.update({
+        where: { id },
+        data: { role: prismaEnum.role(role) },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "UPDATE",
+        entityType: entityTypeToPrisma("admin_user"),
+        entityId: id,
+        before: auditJson(before),
+        after: auditJson(user),
+        reason: "Admin role changed.",
+      })
+      return adminUserFromDb(user)
+    })
+  },
+
+  async updateAdminUserStatus(id, status, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.adminUser.findUniqueOrThrow({ where: { id } })
+
+      if (before.role === "ADMIN" && before.status === "ACTIVE" && status !== "active") {
+        const activeAdminCount = await tx.adminUser.count({
+          where: {
+            role: "ADMIN",
+            status: "ACTIVE",
+            isHuman: true,
+            id: { not: id },
+          },
+        })
+
+        if (activeAdminCount < 1) {
+          throw new Error("Cannot disable or de-activate the last active admin.")
+        }
+      }
+
+      const user = await tx.adminUser.update({
+        where: { id },
+        data: { status: prismaEnum.userStatus(status) },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "UPDATE",
+        entityType: entityTypeToPrisma("admin_user"),
+        entityId: id,
+        before: auditJson(before),
+        after: auditJson(user),
+        reason: "Admin user status changed.",
+      })
+      return adminUserFromDb(user)
+    })
+  },
+
+  async listAuditLogs(filters) {
+    const where: Prisma.AuditLogWhereInput = {}
+
+    if (filters?.action) where.action = filters.action.toUpperCase() as Prisma.AuditLogWhereInput["action"]
+    if (filters?.entityType) {
+      where.entityType = filters.entityType.toUpperCase() as Prisma.AuditLogWhereInput["entityType"]
+    }
+    if (filters?.actorId) where.actorId = filters.actorId
+    if (filters?.from || filters?.to) {
+      where.createdAt = {
+        gte: filters.from ? new Date(filters.from) : undefined,
+        lte: filters.to ? new Date(filters.to) : undefined,
+      }
+    }
+
+    const logs = await prisma.auditLog.findMany({
+      where,
+      include: { actor: true },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    })
+
+    return logs.map((entry) => ({
+      id: entry.id,
+      actorId: entry.actorId ?? undefined,
+      actorName: entry.actor?.name,
+      actorEmail: entry.actor?.email ?? undefined,
+      actorRole: entry.actor?.role.toLowerCase() as AdminUser["role"] | undefined,
+      action: entry.action.toLowerCase() as AdminAuditLogEntry["action"],
+      entityType: entry.entityType.toLowerCase() as AdminAuditLogEntry["entityType"],
+      entityId: entry.entityId,
+      beforeJson: entry.before ? maskSensitiveJson(entry.before) : undefined,
+      afterJson: entry.after ? maskSensitiveJson(entry.after) : undefined,
+      metadataJson: entry.metadata ? maskSensitiveJson(entry.metadata) : undefined,
+      reason: entry.reason ?? undefined,
+      ipAddress: entry.ipAddress ?? undefined,
+      userAgent: entry.userAgent ?? undefined,
+      createdAt: entry.createdAt.toISOString(),
+    }))
+  },
+
+  async listAuditActors() {
+    const users = await prisma.adminUser.findMany({
+      where: { auditLogs: { some: {} } },
+      orderBy: { name: "asc" },
+    })
+    return users.map(adminUserFromDb)
+  },
+
   async listLaunches() {
     const launches = await prisma.launch.findMany({
       include: { sourceRecords: true },
@@ -344,6 +573,54 @@ export const prismaAdminRepository: AdminRepository = {
     })
 
     return launch ? launchFromDb(launch) : undefined
+  },
+
+  async updateLaunch(input, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.launch.findUniqueOrThrow({ where: { id: input.id } })
+      const launch = await tx.launch.update({
+        where: { id: input.id },
+        data: {
+          slug: input.slug,
+          missionName: localizedToJson(input.missionName),
+          contentTitle: localizedToJson(input.missionName),
+          contentDescription: localizedToJson(input.missionDescription),
+          seoTitle: localizedToJson(input.missionName),
+          metaDescription: localizedToJson(input.missionDescription),
+          rocket: {
+            id: input.rocketName.toLowerCase().replaceAll(" ", "-"),
+            name: input.rocketName,
+          },
+          launchPad: {
+            id: input.launchPadName.toLowerCase().replaceAll(" ", "-"),
+            name: input.launchPadName,
+            location: input.launchPadLocation,
+          },
+          launchDateTimeUtc: input.launchDateTimeUtc,
+          trajectory: localizedToJson(input.trajectory),
+          orbit: input.orbit,
+          payload: localizedToJson(input.payload),
+          missionDescription: localizedToJson(input.missionDescription),
+          officialUrl: input.officialUrl,
+          youtubeUrlOrVideoId: input.youtubeUrlOrVideoId,
+          confidenceLevel: prismaEnum.confidence(input.confidenceLevel),
+          status: prismaEnum.launchStatus(input.status),
+          isFeatured: input.isFeatured,
+        },
+        include: { sourceRecords: true },
+      })
+
+      await writeAudit(tx, {
+        actorId,
+        action: "UPDATE",
+        entityType: entityTypeToPrisma("launch"),
+        entityId: input.id,
+        before: auditJson(before),
+        after: auditJson(launch),
+      })
+
+      return launchFromDb(launch)
+    })
   },
 
   async listTimelineEvents(launchId) {
@@ -362,12 +639,75 @@ export const prismaAdminRepository: AdminRepository = {
     return events.map(timelineEventFromDb)
   },
 
+  async updateTimelineEvent(input, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.missionTimelineEvent.findUniqueOrThrow({
+        where: { id: input.id },
+      })
+      const event = await tx.missionTimelineEvent.update({
+        where: { id: input.id },
+        data: {
+          type: prismaEnum.timelineType(input.type),
+          title: localizedToJson(input.title),
+          description: localizedToJson(input.description),
+          relativeTime: input.relativeTime,
+          status: prismaEnum.timelineStatus(input.status),
+          sortOrder: input.sortOrder,
+        },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "UPDATE",
+        entityType: entityTypeToPrisma("timeline_event"),
+        entityId: input.id,
+        before: auditJson(before),
+        after: auditJson(event),
+      })
+      return timelineEventFromDb(event)
+    })
+  },
+
   async listArticles() {
     const articles = await prisma.article.findMany({
       include: { sources: true },
       orderBy: { updatedAt: "desc" },
     })
     return articles.map(articleFromDb)
+  },
+
+  async getArticleById(id) {
+    const article = await prisma.article.findUnique({
+      where: { id },
+      include: { sources: true },
+    })
+    return article ? articleFromDb(article) : undefined
+  },
+
+  async updateArticle(input, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.article.findUniqueOrThrow({ where: { id: input.id } })
+      const article = await tx.article.update({
+        where: { id: input.id },
+        data: {
+          slug: input.slug,
+          title: localizedToJson(input.title),
+          body: localizedToJson(input.body),
+          seoTitle: localizedToJson(input.seoTitle),
+          metaDescription: localizedToJson(input.metaDescription),
+          category: input.category,
+        },
+        include: { sources: true },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "UPDATE",
+        entityType: entityTypeToPrisma("article"),
+        entityId: input.id,
+        before: auditJson(before),
+        after: auditJson(article),
+      })
+      return articleFromDb(article)
+    })
   },
 
   async listNews() {
@@ -378,6 +718,42 @@ export const prismaAdminRepository: AdminRepository = {
     return news.map(newsFromDb)
   },
 
+  async getNewsById(id) {
+    const item = await prisma.newsItem.findUnique({
+      where: { id },
+      include: { sources: true },
+    })
+    return item ? newsFromDb(item) : undefined
+  },
+
+  async updateNews(input, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.newsItem.findUniqueOrThrow({ where: { id: input.id } })
+      const item = await tx.newsItem.update({
+        where: { id: input.id },
+        data: {
+          slug: input.slug,
+          title: localizedToJson(input.title),
+          summary: localizedToJson(input.summary),
+          sourceName: input.sourceName,
+          sourceUrl: input.sourceUrl,
+          publicationDate: input.publicationDate,
+          confidenceLevel: prismaEnum.confidence(input.confidenceLevel),
+        },
+        include: { sources: true },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "UPDATE",
+        entityType: entityTypeToPrisma("news_item"),
+        entityId: input.id,
+        before: auditJson(before),
+        after: auditJson(item),
+      })
+      return newsFromDb(item)
+    })
+  },
+
   async listFAQs() {
     const faqs = await prisma.fAQItem.findMany({
       include: { sources: true },
@@ -386,11 +762,83 @@ export const prismaAdminRepository: AdminRepository = {
     return faqs.map(faqFromDb)
   },
 
+  async getFAQById(id) {
+    const item = await prisma.fAQItem.findUnique({
+      where: { id },
+      include: { sources: true },
+    })
+    return item ? faqFromDb(item) : undefined
+  },
+
+  async updateFAQ(input, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.fAQItem.findUniqueOrThrow({ where: { id: input.id } })
+      const item = await tx.fAQItem.update({
+        where: { id: input.id },
+        data: {
+          group: prismaEnum.faqGroup(input.group),
+          question: localizedToJson(input.question),
+          answer: localizedToJson(input.answer),
+          sortOrder: input.sortOrder,
+        },
+        include: { sources: true },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "UPDATE",
+        entityType: entityTypeToPrisma("faq_item"),
+        entityId: input.id,
+        before: auditJson(before),
+        after: auditJson(item),
+      })
+      return faqFromDb(item)
+    })
+  },
+
   async listSources() {
     const sources = await prisma.sourceRecord.findMany({
       orderBy: [{ trustLevel: "asc" }, { updatedAt: "desc" }],
     })
     return sources.map(sourceFromDb)
+  },
+
+  async getSourceById(id) {
+    const source = await prisma.sourceRecord.findUnique({ where: { id } })
+    return source ? sourceFromDb(source) : undefined
+  },
+
+  async updateSource(input, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.sourceRecord.findUniqueOrThrow({ where: { id: input.id } })
+      const source = await tx.sourceRecord.update({
+        where: { id: input.id },
+        data: {
+          launchId: input.launchId,
+          articleId: input.articleId,
+          newsItemId: input.newsItemId,
+          faqItemId: input.faqItemId,
+          kind: prismaEnum.sourceKind(input.kind),
+          title: localizedToJson(input.title),
+          publisher: input.publisher,
+          url: input.url,
+          confidenceLevel: prismaEnum.confidence(input.confidenceLevel),
+          isPrimary: input.trustLevel === "primary",
+          notes: input.notes,
+          sourceType: prismaEnum.sourceType(input.sourceType),
+          trustLevel: prismaEnum.trustLevel(input.trustLevel),
+          lastCheckedAt: new Date(),
+        },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "UPDATE",
+        entityType: entityTypeToPrisma("source_record"),
+        entityId: input.id,
+        before: auditJson(before),
+        after: auditJson(source),
+      })
+      return sourceFromDb(source)
+    })
   },
 
   async listSourceConflicts() {

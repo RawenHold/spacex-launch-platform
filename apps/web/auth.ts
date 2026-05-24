@@ -37,7 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email: parsed.data.email.toLowerCase() },
         })
 
-        if (!user || !user.isHuman || !user.passwordHash) {
+        if (!user || !user.isHuman || user.status !== "ACTIVE" || !user.passwordHash) {
           return null
         }
 

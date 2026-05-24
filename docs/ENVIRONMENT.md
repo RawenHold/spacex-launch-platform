@@ -44,9 +44,12 @@ npx auth secret
 
 ```text
 DIRECT_URL=
+ENABLE_MOCK_FALLBACK=true
 ```
 
 Some hosted Postgres providers use a pooled connection for runtime and a direct connection for migrations. The current Prisma schema uses `DATABASE_URL`; add `directUrl` later if the selected host requires it.
+
+`ENABLE_MOCK_FALLBACK=false` disables local development fallback to static mock data. Production never uses fallback mock data.
 
 ## Future Placeholders
 

@@ -32,11 +32,12 @@ async function main() {
 
   const aiModerator = await prisma.adminUser.upsert({
     where: { id: "ai-moderator" },
-    update: { name: "AI Moderator", role: "AI_MODERATOR", isHuman: false },
+      update: { name: "AI Moderator", role: "AI_MODERATOR", status: "ACTIVE", isHuman: false },
     create: {
       id: "ai-moderator",
       name: "AI Moderator",
       role: "AI_MODERATOR",
+      status: "ACTIVE",
       isHuman: false,
     },
   })
@@ -49,12 +50,14 @@ async function main() {
       update: {
         name: adminName,
         role: "ADMIN",
+        status: "ACTIVE",
         passwordHash: adminPassword ? hashPassword(adminPassword) : undefined,
       },
       create: {
         email: adminEmail,
         name: adminName,
         role: "ADMIN",
+        status: "ACTIVE",
         isHuman: true,
         passwordHash: adminPassword ? hashPassword(adminPassword) : undefined,
       },

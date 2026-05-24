@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { getCurrentAdminUser } from "@/lib/admin/auth"
 import { generateAIDraft } from "@/lib/admin/ai-service"
 import { roleCan } from "@/lib/admin/permissions"
+import { enforceAdminWriteRateLimit } from "@/lib/admin/rate-limit"
+import { RateLimitError } from "@/lib/rate-limit"
 import type { AdminSourceRecord, AIDraft, AIDraftType } from "@/types/admin"
 
 const allowedDraftTypes: AIDraftType[] = [
@@ -47,6 +49,16 @@ export async function POST(request: Request) {
 
   if (!roleCan(user.role, "generate_ai_drafts")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  try {
+    await enforceAdminWriteRateLimit(user.id)
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 429 })
+    }
+
+    throw error
   }
 
   const body: unknown = await request.json().catch(() => null)

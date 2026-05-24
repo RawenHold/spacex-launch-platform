@@ -135,7 +135,7 @@ export interface Launch {
   timeline: MissionTimelineEvent[]
   sourceRecords: SourceRecord[]
   confidenceLevel: DataConfidenceLevel
-  isMock: true
+  isMock: boolean
   tags: string[]
 }
 
@@ -147,7 +147,7 @@ export interface Article {
   category: string
   readingMinutes: number
   publishedAt: string
-  isMock: true
+  isMock: boolean
 }
 
 export interface NewsItem {
@@ -159,7 +159,7 @@ export interface NewsItem {
   sourceUrl?: string
   publishedAt: string
   confidenceLevel: DataConfidenceLevel
-  isMock: true
+  isMock: boolean
 }
 
 export interface FAQItem {
@@ -167,5 +167,5 @@ export interface FAQItem {
   group: "basics" | "falcon9" | "starship" | "timeline" | "livestreams" | "accuracy" | "reminders"
   question: LocalizedText
   answer: LocalizedText
-  isMock: true
+  isMock: boolean
 }

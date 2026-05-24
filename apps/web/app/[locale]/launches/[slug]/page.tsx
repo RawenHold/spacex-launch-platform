@@ -14,20 +14,15 @@ import { SectionHeader } from "@/components/shared/section-header"
 import { Alert } from "@/components/ui/alert"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { launches, timelineExplainers } from "@/data/mock-data"
+import { timelineExplainers } from "@/data/mock-data"
 import { formatUtcDateTime } from "@/lib/format"
 import { localize } from "@/lib/i18n/config"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
-import { getLaunchBySlug } from "@/lib/launches"
+import { getPublishedLaunchBySlug } from "@/lib/public/repository"
 import { isRiskyConfidence } from "@/lib/source-confidence"
 import type { Locale, TimelineEventType } from "@/types/space"
 
-export function generateStaticParams() {
-  return launches.flatMap((launch) => [
-    { locale: "en", slug: launch.slug },
-    { locale: "ru", slug: launch.slug },
-  ])
-}
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata({
   params,
@@ -36,7 +31,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, slug } = await params
   const dictionary = getDictionary(locale)
-  const launch = getLaunchBySlug(slug)
+  const result = await getPublishedLaunchBySlug(slug)
+  const launch = result.items
 
   if (!launch) {
     return {
@@ -110,7 +106,8 @@ export default async function LaunchDetailPage({
 }) {
   const { locale, slug } = await params
   const dictionary = getDictionary(locale)
-  const launch = getLaunchBySlug(slug)
+  const result = await getPublishedLaunchBySlug(slug)
+  const launch = result.items
 
   if (!launch) {
     notFound()
@@ -126,6 +123,11 @@ export default async function LaunchDetailPage({
         <div className="absolute inset-0 technical-grid opacity-30" aria-hidden="true" />
         <div className="mission-container relative grid min-h-[70vh] gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
           <div className="flex flex-col gap-6">
+          {result.source === "mock_fallback" ? (
+            <Alert>
+              Development fallback is active: this mission is local mock data because no published database record matched this slug.
+            </Alert>
+          ) : null}
             <div className="flex flex-wrap gap-2">
               <StatusBadge status={launch.status} label={dictionary.launchStatus[launch.status]} />
               <ConfidenceBadge

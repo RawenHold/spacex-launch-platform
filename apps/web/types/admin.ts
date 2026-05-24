@@ -11,6 +11,7 @@ export type AdminRocket = Launch["rocket"]
 export type AdminLaunchPad = Launch["launchPad"]
 
 export type AdminRole = "admin" | "editor" | "researcher" | "ai_moderator"
+export type AdminUserStatus = "active" | "disabled" | "invited"
 
 export type AdminPermission =
   | "publish"
@@ -65,6 +66,31 @@ export type AdminTimelineEventStatus =
 export type AdminSourceType = "official" | "api" | "secondary" | "manual"
 export type AdminTrustLevel = "primary" | "secondary" | "low"
 
+export type AdminAuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "submit_for_review"
+  | "approve"
+  | "reject"
+  | "publish"
+  | "archive"
+  | "override"
+  | "sign_in"
+  | "rate_limit"
+
+export type AdminEntityType =
+  | "admin_user"
+  | "launch"
+  | "timeline_event"
+  | "source_record"
+  | "source_conflict"
+  | "article"
+  | "news_item"
+  | "faq_item"
+  | "ai_draft"
+  | "settings"
+
 export type AIDraftType =
   | "launch_summary"
   | "article"
@@ -86,9 +112,38 @@ export interface AdminUser {
   name: string
   email?: string
   role: AdminRole
+  status: AdminUserStatus
   permissions: AdminPermission[]
   isHuman: boolean
   lastActiveAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface AdminAuditLogEntry {
+  id: string
+  actorId?: string
+  actorName?: string
+  actorEmail?: string
+  actorRole?: AdminRole
+  action: AdminAuditAction
+  entityType: AdminEntityType
+  entityId: string
+  beforeJson?: unknown
+  afterJson?: unknown
+  metadataJson?: unknown
+  reason?: string
+  ipAddress?: string
+  userAgent?: string
+  createdAt: string
+}
+
+export interface AdminAuditLogFilters {
+  action?: AdminAuditAction
+  entityType?: AdminEntityType
+  actorId?: string
+  from?: string
+  to?: string
 }
 
 export interface ApprovalRecord {
@@ -212,6 +267,7 @@ export interface AdminArticle {
 
 export interface AdminNewsItem {
   id: string
+  slug: string
   title: LocalizedText
   summary: LocalizedText
   sourceUrl?: string

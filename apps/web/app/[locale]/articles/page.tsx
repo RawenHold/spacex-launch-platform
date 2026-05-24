@@ -1,10 +1,13 @@
 import type { Metadata } from "next"
 
 import { ArticlesBoard } from "@/components/content/articles-board"
+import { DevDataWarning, EmptyState } from "@/components/shared/data-state"
 import { PageHero } from "@/components/shared/page-hero"
-import { articles } from "@/data/mock-data"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
+import { getPublishedArticles } from "@/lib/public/repository"
 import type { Locale } from "@/types/space"
+
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata({
   params,
@@ -26,6 +29,8 @@ export default async function ArticlesPage({
 }) {
   const { locale } = await params
   const dictionary = getDictionary(locale)
+  const result = await getPublishedArticles()
+  const articles = result.items
 
   return (
     <>
@@ -35,7 +40,15 @@ export default async function ArticlesPage({
         subtitle={dictionary.pages.articles.subtitle}
       />
       <section className="mission-container py-14">
-        <ArticlesBoard articles={articles} locale={locale} dictionary={dictionary} />
+        {result.source === "mock_fallback" ? <DevDataWarning /> : null}
+        {articles.length > 0 ? (
+          <ArticlesBoard articles={articles} locale={locale} dictionary={dictionary} />
+        ) : (
+          <EmptyState
+            title="No published articles"
+            description="Approved and published article records from PostgreSQL will appear here."
+          />
+        )}
       </section>
     </>
   )

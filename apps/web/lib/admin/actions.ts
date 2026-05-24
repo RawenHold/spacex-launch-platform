@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { requireAdminPermission } from "@/lib/admin/auth"
+import { enforceAdminWriteRateLimit } from "@/lib/admin/rate-limit"
 import { getAdminRepository } from "@/lib/admin/repository"
 import type {
   AdminLaunchRecord,
+  AdminRole,
   AdminSourceRecord,
   AdminTimelineEvent,
   AIDraft,
@@ -36,6 +38,65 @@ const publishableSchema = z.enum([
   "archived",
 ])
 
+const slugSchema = z
+  .string()
+  .min(3, "Use at least 3 characters.")
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens.")
+
+const urlSchema = z
+  .string()
+  .trim()
+  .url("Use a valid URL.")
+  .optional()
+  .or(z.literal("").transform(() => undefined))
+
+const relativeTimeSchema = z
+  .string()
+  .regex(/^T[+-]\d{2}:\d{2}$/, "Use a relative time like T-00:10 or T+01:12.")
+
+const validDateSchema = z.coerce.date().refine((date) => !Number.isNaN(date.getTime()), {
+  message: "Use a valid date.",
+})
+
+const launchStatusSchema = z.enum([
+  "draft",
+  "scheduled",
+  "confirmed",
+  "live",
+  "delayed",
+  "scrubbed",
+  "success",
+  "failure",
+  "partial_success",
+])
+
+const timelineTypeSchema = z.enum([
+  "countdown",
+  "liftoff",
+  "max_q",
+  "meco",
+  "stage_separation",
+  "ses",
+  "seco",
+  "entry_burn",
+  "landing_burn",
+  "booster_landing",
+  "payload_deploy",
+  "custom",
+])
+
+const timelineStatusSchema = z.enum(["planned", "confirmed", "estimated", "skipped", "failed"])
+
+async function requireWritePermission(permissions: Parameters<typeof requireAdminPermission>[0]) {
+  const user = await requireAdminPermission(permissions)
+  await enforceAdminWriteRateLimit(user.id)
+  return user
+}
+
+function booleanFromForm(value: FormDataEntryValue | null) {
+  return value === "on" || value === "true"
+}
+
 function localizedFromForm(formData: FormData, enKey: string, ruKey: string): LocalizedText {
   return localizedSchema.parse({
     en: String(formData.get(enKey) ?? ""),
@@ -50,12 +111,12 @@ function revalidateAdmin(paths: string[]) {
 }
 
 export async function createLaunchAction(formData: FormData) {
-  const user = await requireAdminPermission(["edit_content"])
+  const user = await requireWritePermission(["edit_content"])
   const repository = getAdminRepository()
   const parsed = z
     .object({
       missionName: localizedSchema,
-      slug: z.string().min(3).regex(/^[a-z0-9-]+$/),
+      slug: slugSchema,
       rocketName: z.string().min(2),
       launchPadName: z.string().min(2),
       launchDateTimeUtc: z.coerce.date(),
@@ -87,7 +148,7 @@ export async function createLaunchAction(formData: FormData) {
 }
 
 export async function updateLaunchStatusAction(formData: FormData) {
-  const user = await requireAdminPermission(["edit_content"])
+  const user = await requireWritePermission(["edit_content"])
   const repository = getAdminRepository()
   const parsed = z
     .object({
@@ -113,13 +174,58 @@ export async function updateLaunchStatusAction(formData: FormData) {
   revalidateAdmin(["/admin", "/admin/launches"])
 }
 
+export async function updateLaunchAction(formData: FormData) {
+  const user = await requireWritePermission(["edit_content"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      missionName: localizedSchema,
+      slug: slugSchema,
+      rocketName: z.string().min(2),
+      launchPadName: z.string().min(2),
+      launchPadLocation: localizedSchema,
+      launchDateTimeUtc: validDateSchema,
+      trajectory: localizedSchema,
+      orbit: z.string().trim().optional(),
+      payload: localizedSchema,
+      missionDescription: localizedSchema,
+      officialUrl: urlSchema,
+      youtubeUrlOrVideoId: z.string().trim().optional(),
+      confidenceLevel: confidenceSchema,
+      status: launchStatusSchema,
+      isFeatured: z.boolean(),
+    })
+    .parse({
+      id: formData.get("id"),
+      missionName: localizedFromForm(formData, "missionNameEn", "missionNameRu"),
+      slug: formData.get("slug"),
+      rocketName: formData.get("rocketName"),
+      launchPadName: formData.get("launchPadName"),
+      launchPadLocation: localizedFromForm(formData, "launchPadLocationEn", "launchPadLocationRu"),
+      launchDateTimeUtc: formData.get("launchDateTimeUtc"),
+      trajectory: localizedFromForm(formData, "trajectoryEn", "trajectoryRu"),
+      orbit: String(formData.get("orbit") ?? "") || undefined,
+      payload: localizedFromForm(formData, "payloadEn", "payloadRu"),
+      missionDescription: localizedFromForm(formData, "missionDescriptionEn", "missionDescriptionRu"),
+      officialUrl: String(formData.get("officialUrl") ?? ""),
+      youtubeUrlOrVideoId: String(formData.get("youtubeUrlOrVideoId") ?? "") || undefined,
+      confidenceLevel: formData.get("confidenceLevel"),
+      status: formData.get("status"),
+      isFeatured: booleanFromForm(formData.get("isFeatured")),
+    })
+
+  await repository.updateLaunch(parsed, user.id)
+  revalidateAdmin(["/admin", "/admin/launches", `/admin/launches/${parsed.id}`])
+}
+
 export async function transitionApprovalAction(formData: FormData) {
   const status = publishableSchema.parse(formData.get("status"))
   const requiredPermission =
     status === "approved" || status === "published" || status === "archived"
       ? "approve"
       : "edit_content"
-  const user = await requireAdminPermission([requiredPermission])
+  const user = await requireWritePermission([requiredPermission])
   const repository = getAdminRepository()
   const entityId = z.string().min(1).parse(formData.get("entityId"))
   const comments = String(formData.get("comments") ?? "") || undefined
@@ -129,7 +235,7 @@ export async function transitionApprovalAction(formData: FormData) {
 }
 
 export async function createTimelineEventAction(formData: FormData) {
-  const user = await requireAdminPermission(["manage_timeline"])
+  const user = await requireWritePermission(["manage_timeline"])
   const repository = getAdminRepository()
   const parsed = z
     .object({
@@ -148,7 +254,7 @@ export async function createTimelineEventAction(formData: FormData) {
         "payload_deploy",
         "custom",
       ]),
-      relativeTime: z.string().min(2),
+      relativeTime: relativeTimeSchema,
       title: localizedSchema,
       description: localizedSchema,
       status: z.enum(["planned", "confirmed", "estimated", "skipped", "failed"]),
@@ -167,7 +273,7 @@ export async function createTimelineEventAction(formData: FormData) {
 }
 
 export async function updateTimelineEventStatusAction(formData: FormData) {
-  const user = await requireAdminPermission(["manage_timeline"])
+  const user = await requireWritePermission(["manage_timeline"])
   const repository = getAdminRepository()
   const parsed = z
     .object({
@@ -186,7 +292,7 @@ export async function updateTimelineEventStatusAction(formData: FormData) {
 }
 
 export async function deleteTimelineEventAction(formData: FormData) {
-  const user = await requireAdminPermission(["manage_timeline"])
+  const user = await requireWritePermission(["manage_timeline"])
   const repository = getAdminRepository()
   const id = z.string().min(1).parse(formData.get("id"))
   const launchId = z.string().min(1).parse(formData.get("launchId"))
@@ -195,13 +301,42 @@ export async function deleteTimelineEventAction(formData: FormData) {
   revalidatePath(`/admin/launches/${launchId}/timeline`)
 }
 
+export async function updateTimelineEventAction(formData: FormData) {
+  const user = await requireWritePermission(["manage_timeline"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      launchId: z.string().min(1),
+      type: timelineTypeSchema,
+      relativeTime: relativeTimeSchema,
+      title: localizedSchema,
+      description: localizedSchema,
+      status: timelineStatusSchema,
+      sortOrder: z.coerce.number().int().min(0),
+    })
+    .parse({
+      id: formData.get("id"),
+      launchId: formData.get("launchId"),
+      type: formData.get("type"),
+      relativeTime: formData.get("relativeTime"),
+      title: localizedFromForm(formData, "titleEn", "titleRu"),
+      description: localizedFromForm(formData, "descriptionEn", "descriptionRu"),
+      status: formData.get("status"),
+      sortOrder: formData.get("sortOrder"),
+    })
+
+  await repository.updateTimelineEvent(parsed, user.id)
+  revalidatePath(`/admin/launches/${parsed.launchId}/timeline`)
+}
+
 export async function createArticleAction(formData: FormData) {
-  const user = await requireAdminPermission(["edit_content"])
+  const user = await requireWritePermission(["edit_content"])
   const repository = getAdminRepository()
 
   await repository.createArticle(
     {
-      slug: z.string().min(3).regex(/^[a-z0-9-]+$/).parse(formData.get("slug")),
+      slug: slugSchema.parse(formData.get("slug")),
       title: localizedFromForm(formData, "titleEn", "titleRu"),
       body: localizedFromForm(formData, "bodyEn", "bodyRu"),
       category: z.string().min(2).parse(formData.get("category")),
@@ -214,7 +349,7 @@ export async function createArticleAction(formData: FormData) {
 export async function updateArticleStatusAction(formData: FormData) {
   const id = z.string().min(1).parse(formData.get("id"))
   const status = publishableSchema.parse(formData.get("status"))
-  const user = await requireAdminPermission([
+  const user = await requireWritePermission([
     status === "approved" ||
     status === "published" ||
     status === "rejected" ||
@@ -227,17 +362,44 @@ export async function updateArticleStatusAction(formData: FormData) {
   revalidateAdmin(["/admin", "/admin/articles"])
 }
 
+export async function updateArticleAction(formData: FormData) {
+  const user = await requireWritePermission(["edit_content"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      slug: slugSchema,
+      title: localizedSchema,
+      body: localizedSchema,
+      seoTitle: localizedSchema,
+      metaDescription: localizedSchema,
+      category: z.string().min(2),
+    })
+    .parse({
+      id: formData.get("id"),
+      slug: formData.get("slug"),
+      title: localizedFromForm(formData, "titleEn", "titleRu"),
+      body: localizedFromForm(formData, "bodyEn", "bodyRu"),
+      seoTitle: localizedFromForm(formData, "seoTitleEn", "seoTitleRu"),
+      metaDescription: localizedFromForm(formData, "metaDescriptionEn", "metaDescriptionRu"),
+      category: formData.get("category"),
+    })
+
+  await repository.updateArticle(parsed, user.id)
+  revalidateAdmin(["/admin", "/admin/articles", `/admin/articles/${parsed.id}`])
+}
+
 export async function createNewsAction(formData: FormData) {
-  const user = await requireAdminPermission(["edit_content"])
+  const user = await requireWritePermission(["edit_content"])
   const repository = getAdminRepository()
 
   await repository.createNews(
     {
-      slug: z.string().min(3).regex(/^[a-z0-9-]+$/).parse(formData.get("slug")),
+      slug: slugSchema.parse(formData.get("slug")),
       title: localizedFromForm(formData, "titleEn", "titleRu"),
       summary: localizedFromForm(formData, "summaryEn", "summaryRu"),
       sourceName: z.string().min(2).parse(formData.get("sourceName")),
-      sourceUrl: String(formData.get("sourceUrl") ?? "") || undefined,
+      sourceUrl: urlSchema.parse(String(formData.get("sourceUrl") ?? "")),
       publicationDate: z.coerce.date().parse(formData.get("publicationDate")),
       confidenceLevel: confidenceSchema.parse(formData.get("confidenceLevel")),
     },
@@ -249,7 +411,7 @@ export async function createNewsAction(formData: FormData) {
 export async function updateNewsStatusAction(formData: FormData) {
   const id = z.string().min(1).parse(formData.get("id"))
   const status = publishableSchema.parse(formData.get("status"))
-  const user = await requireAdminPermission([
+  const user = await requireWritePermission([
     status === "approved" ||
     status === "published" ||
     status === "rejected" ||
@@ -262,8 +424,37 @@ export async function updateNewsStatusAction(formData: FormData) {
   revalidateAdmin(["/admin", "/admin/news"])
 }
 
+export async function updateNewsAction(formData: FormData) {
+  const user = await requireWritePermission(["edit_content"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      slug: slugSchema,
+      title: localizedSchema,
+      summary: localizedSchema,
+      sourceName: z.string().min(2),
+      sourceUrl: urlSchema,
+      publicationDate: validDateSchema,
+      confidenceLevel: confidenceSchema,
+    })
+    .parse({
+      id: formData.get("id"),
+      slug: formData.get("slug"),
+      title: localizedFromForm(formData, "titleEn", "titleRu"),
+      summary: localizedFromForm(formData, "summaryEn", "summaryRu"),
+      sourceName: formData.get("sourceName"),
+      sourceUrl: String(formData.get("sourceUrl") ?? ""),
+      publicationDate: formData.get("publicationDate"),
+      confidenceLevel: formData.get("confidenceLevel"),
+    })
+
+  await repository.updateNews(parsed, user.id)
+  revalidateAdmin(["/admin", "/admin/news", `/admin/news/${parsed.id}`])
+}
+
 export async function createFAQAction(formData: FormData) {
-  const user = await requireAdminPermission(["edit_content"])
+  const user = await requireWritePermission(["edit_content"])
   const repository = getAdminRepository()
 
   await repository.createFAQ(
@@ -282,7 +473,7 @@ export async function createFAQAction(formData: FormData) {
 export async function updateFAQStatusAction(formData: FormData) {
   const id = z.string().min(1).parse(formData.get("id"))
   const status = publishableSchema.parse(formData.get("status"))
-  const user = await requireAdminPermission([
+  const user = await requireWritePermission([
     status === "approved" ||
     status === "published" ||
     status === "rejected" ||
@@ -295,15 +486,38 @@ export async function updateFAQStatusAction(formData: FormData) {
   revalidateAdmin(["/admin", "/admin/faq"])
 }
 
+export async function updateFAQAction(formData: FormData) {
+  const user = await requireWritePermission(["edit_content"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      group: z.enum(["basics", "falcon9", "starship", "timeline", "livestreams", "accuracy", "reminders"]),
+      question: localizedSchema,
+      answer: localizedSchema,
+      sortOrder: z.coerce.number().int().min(0),
+    })
+    .parse({
+      id: formData.get("id"),
+      group: formData.get("group"),
+      question: localizedFromForm(formData, "questionEn", "questionRu"),
+      answer: localizedFromForm(formData, "answerEn", "answerRu"),
+      sortOrder: formData.get("sortOrder"),
+    })
+
+  await repository.updateFAQ(parsed, user.id)
+  revalidateAdmin(["/admin", "/admin/faq", `/admin/faq/${parsed.id}`])
+}
+
 export async function createSourceAction(formData: FormData) {
-  const user = await requireAdminPermission(["manage_sources"])
+  const user = await requireWritePermission(["manage_sources"])
   const repository = getAdminRepository()
 
   await repository.createSource(
     {
       publisher: z.string().min(2).parse(formData.get("publisher")),
       title: localizedFromForm(formData, "titleEn", "titleRu"),
-      url: String(formData.get("url") ?? "") || undefined,
+      url: urlSchema.parse(String(formData.get("url") ?? "")),
       kind: z
         .enum([
           "official_spacex",
@@ -333,12 +547,54 @@ export async function createSourceAction(formData: FormData) {
 }
 
 export async function updateSourceTrustAction(formData: FormData) {
-  const user = await requireAdminPermission(["manage_sources"])
+  const user = await requireWritePermission(["manage_sources"])
   const repository = getAdminRepository()
   const id = z.string().min(1).parse(formData.get("id"))
   const trustLevel = z.enum(["primary", "secondary", "low"]).parse(formData.get("trustLevel"))
   await repository.updateSourceTrust(id, trustLevel, user.id)
   revalidateAdmin(["/admin", "/admin/sources"])
+}
+
+export async function updateSourceAction(formData: FormData) {
+  const user = await requireWritePermission(["manage_sources"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      publisher: z.string().min(2),
+      title: localizedSchema,
+      url: urlSchema,
+      kind: z.enum([
+        "official_spacex",
+        "official_youtube",
+        "nasa",
+        "faa",
+        "launch_library",
+        "spaceflight_now",
+        "nasaspaceflight",
+        "next_spaceflight",
+        "mock_dataset",
+        "other",
+      ]),
+      sourceType: z.enum(["official", "api", "secondary", "manual"]),
+      trustLevel: z.enum(["primary", "secondary", "low"]),
+      confidenceLevel: confidenceSchema,
+      notes: z.string().optional(),
+    })
+    .parse({
+      id: formData.get("id"),
+      publisher: formData.get("publisher"),
+      title: localizedFromForm(formData, "titleEn", "titleRu"),
+      url: String(formData.get("url") ?? ""),
+      kind: formData.get("kind"),
+      sourceType: formData.get("sourceType"),
+      trustLevel: formData.get("trustLevel"),
+      confidenceLevel: formData.get("confidenceLevel"),
+      notes: String(formData.get("notes") ?? "") || undefined,
+    })
+
+  await repository.updateSource(parsed, user.id)
+  revalidateAdmin(["/admin", "/admin/sources", `/admin/sources/${parsed.id}`])
 }
 
 export async function updateAIDraftStatusAction(formData: FormData) {
@@ -349,12 +605,67 @@ export async function updateAIDraftStatusAction(formData: FormData) {
     status === "approved" || status === "rejected" || status === "merged"
       ? "approve"
       : "generate_ai_drafts"
-  const user = await requireAdminPermission([requiredPermission])
+  const user = await requireWritePermission([requiredPermission])
   const repository = getAdminRepository()
   const id = z.string().min(1).parse(formData.get("id"))
 
   await repository.updateAIDraftStatus(id, status as AIDraft["status"], user.id)
   revalidateAdmin(["/admin", "/admin/ai-drafts"])
+}
+
+export async function createAdminUserAction(formData: FormData) {
+  const user = await requireWritePermission(["manage_settings"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      name: z.string().min(2),
+      email: z.string().email(),
+      role: z.enum(["admin", "editor", "researcher"]),
+      status: z.enum(["active", "disabled", "invited"]),
+    })
+    .parse({
+      name: formData.get("name"),
+      email: formData.get("email"),
+      role: formData.get("role"),
+      status: formData.get("status") ?? "invited",
+    })
+
+  await repository.createAdminUser(parsed, user.id)
+  revalidateAdmin(["/admin/users"])
+}
+
+export async function updateAdminUserRoleAction(formData: FormData) {
+  const user = await requireWritePermission(["manage_settings"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      role: z.enum(["admin", "editor", "researcher"]),
+    })
+    .parse({
+      id: formData.get("id"),
+      role: formData.get("role"),
+    })
+
+  await repository.updateAdminUserRole(parsed.id, parsed.role as AdminRole, user.id)
+  revalidateAdmin(["/admin/users"])
+}
+
+export async function updateAdminUserStatusAction(formData: FormData) {
+  const user = await requireWritePermission(["manage_settings"])
+  const repository = getAdminRepository()
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      status: z.enum(["active", "disabled", "invited"]),
+    })
+    .parse({
+      id: formData.get("id"),
+      status: formData.get("status"),
+    })
+
+  await repository.updateAdminUserStatus(parsed.id, parsed.status, user.id)
+  revalidateAdmin(["/admin/users"])
 }
 
 export type LaunchStatusForForm = AdminLaunchRecord["status"]

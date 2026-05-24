@@ -41,6 +41,33 @@ Recommended application architecture for Stage 2:
 
 Do not initialize the full app inside this step. This repository is currently a design/reference workspace, so Stage 2 should either create a new app folder such as `apps/web` or convert the root intentionally.
 
+## Current Backend Stabilization
+
+The active app now lives in `apps/web` and uses:
+
+- Next.js App Router and TypeScript.
+- npm with `package-lock.json`.
+- Prisma with PostgreSQL.
+- Auth.js v5 Credentials/JWT.
+- Server-protected `/admin` route group.
+- Persistent admin roles, approval records, audit logs, and CRUD foundations.
+
+Public pages now read through `apps/web/lib/public/repository.ts`. They show only published database records. Local mock data is an explicit development fallback with a visible warning and is not mixed with database results on the homepage.
+
+Admin additions:
+
+- `/admin/audit` for admin-only audit review with masked JSON details.
+- `/admin/users` for admin-only user records, roles, and status.
+- Detail/edit pages for launches, timeline events, articles, news, FAQ, and sources.
+- In-memory rate limiting for admin login, write actions, and admin API routes.
+
+Known stabilization limitations:
+
+- Rate limiting is in-memory and must be replaced before multi-instance deployment.
+- External SpaceX data sync is not integrated yet.
+- YouTube Data API and OpenAI API remain intentionally unintegrated.
+- Seed data is placeholder content and should not be treated as official launch data.
+
 ## MVP Scope
 
 MVP v1 includes:

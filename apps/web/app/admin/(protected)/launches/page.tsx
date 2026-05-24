@@ -230,7 +230,7 @@ export default async function AdminLaunchesPage() {
                     Timeline
                   </Link>
                   <Link
-                    href={`/admin/launches/${launch.id}/timeline`}
+                    href={`/admin/launches/${launch.id}`}
                     className={buttonVariants({ variant: "ghost", size: "sm" })}
                   >
                     <Pencil data-icon aria-hidden="true" />

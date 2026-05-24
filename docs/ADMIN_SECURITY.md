@@ -69,11 +69,21 @@ apps/web/lib/admin/password.ts
 
 This is acceptable for a production-oriented foundation, but before public deployment the project should add:
 
-- rate limiting
 - account lockout or throttling
 - password reset flow
 - MFA or SSO
 - stronger operational monitoring
+
+## Rate Limiting
+
+The MVP now includes a basic in-memory rate limiting foundation:
+
+- `/admin/login` is limited by IP and email.
+- Admin server write actions are limited by user id.
+- Admin API write routes call the same write limiter.
+- Rate-limit events are logged to `AuditLog` when possible.
+
+This is useful for local MVP stabilization, but it is not sufficient for multi-instance production. Production should move rate limiting to Redis, Upstash, Vercel KV, Supabase/pg-backed counters, or an edge/WAF layer with centralized storage.
 
 ## Approval And Publishing
 
@@ -104,8 +114,27 @@ Important admin actions write `AuditLog` records:
 - archive
 - override
 - sign_in
+- rate_limit
 
 Audit logs include actor, action, entity type, entity id, optional before/after JSON snapshots, reason, metadata, and timestamp.
+
+The admin-only viewer is available at:
+
+```text
+/admin/audit
+```
+
+It masks sensitive JSON keys before rendering, including password, token, secret, apiKey, `DATABASE_URL`, `AUTH_SECRET`, `OPENAI_API_KEY`, `YOUTUBE_API_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`.
+
+## User Management
+
+Admin-only user management is available at:
+
+```text
+/admin/users
+```
+
+Admins can create placeholder invited user records, change roles, and change user status. The system prevents disabling or de-activating the last active human admin. AI Moderator remains a system identity and should not be assigned as a normal human login role.
 
 ## Secret Handling
 
@@ -123,7 +152,7 @@ Before production deployment:
 
 - Configure `AUTH_SECRET`.
 - Use HTTPS only.
-- Add rate limiting to `/admin/login` and admin write endpoints.
+- Replace in-memory rate limiting with centralized production rate limiting.
 - Add CSRF review for any non-Auth.js form endpoints.
 - Add monitoring and alerting for failed logins and override audit logs.
 - Add backup/restore and migration rollback plans.

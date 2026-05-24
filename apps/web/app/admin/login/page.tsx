@@ -12,7 +12,19 @@ export const metadata: Metadata = {
   },
 }
 
-export default function AdminLoginPage() {
+export default async function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>
+}) {
+  const error = (await searchParams)?.error
+  const errorMessage =
+    error === "rate_limit"
+      ? "Too many attempts. Wait a few minutes and try again."
+      : error === "invalid"
+        ? "Email or password was not accepted."
+        : undefined
+
   return (
     <main className="relative min-h-screen bg-background text-foreground">
       <div className="technical-grid absolute inset-0 opacity-40" aria-hidden="true" />
@@ -30,6 +42,12 @@ export default function AdminLoginPage() {
               </h1>
             </div>
           </div>
+
+          {errorMessage ? (
+            <div className="mt-6 rounded-lg border border-signal-red/50 bg-signal-red/10 p-3 text-sm text-signal-red">
+              {errorMessage}
+            </div>
+          ) : null}
 
           <form action={adminSignInAction} className="mt-8 flex flex-col gap-5">
             <label className="flex flex-col gap-2 text-sm font-semibold text-foreground">

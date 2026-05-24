@@ -2,6 +2,7 @@ import type {
   AdminEntityType as PrismaEntityType,
   AdminLaunchStatus as PrismaLaunchStatus,
   AdminRole as PrismaRole,
+  AdminUserStatus as PrismaUserStatus,
   AdminSourceType as PrismaSourceType,
   AdminTimelineEventStatus as PrismaTimelineEventStatus,
   AdminTimelineEventType as PrismaTimelineEventType,
@@ -58,6 +59,14 @@ export function toPrismaRole(value: AdminUser["role"]): PrismaRole {
 
 export function fromPrismaRole(value: PrismaRole): AdminUser["role"] {
   return fromUpperSnake(value) as AdminUser["role"]
+}
+
+export function toPrismaUserStatus(value: AdminUser["status"]): PrismaUserStatus {
+  return toUpperSnake(value) as PrismaUserStatus
+}
+
+export function fromPrismaUserStatus(value: PrismaUserStatus): AdminUser["status"] {
+  return fromUpperSnake(value) as AdminUser["status"]
 }
 
 export function toPrismaPublishable(value: PublishableStatus): PrismaPublishableStatus {
@@ -121,16 +130,22 @@ export function adminUserFromDb(user: {
   email: string | null
   name: string
   role: PrismaRole
+  status: PrismaUserStatus
   isHuman: boolean
   lastActiveAt: Date | null
+  createdAt?: Date
+  updatedAt?: Date
 }): AdminUser {
   return {
     id: user.id,
     email: user.email ?? undefined,
     name: user.name,
     role: fromPrismaRole(user.role),
+    status: fromPrismaUserStatus(user.status),
     isHuman: user.isHuman,
     lastActiveAt: user.lastActiveAt?.toISOString(),
+    createdAt: user.createdAt?.toISOString(),
+    updatedAt: user.updatedAt?.toISOString(),
     permissions: [],
   }
 }
@@ -233,6 +248,7 @@ export function articleFromDb(article: ArticleWithSources): AdminArticle {
 export function newsFromDb(item: NewsWithSources): AdminNewsItem {
   return {
     id: item.id,
+    slug: item.slug,
     title: localizedFromJson(item.title),
     summary: localizedFromJson(item.summary),
     sourceUrl: item.sourceUrl ?? undefined,
@@ -307,6 +323,7 @@ export function aiDraftFromDb(draft: DbAIDraft): AIDraft {
 
 export const prismaEnum = {
   role: toPrismaRole,
+  userStatus: toPrismaUserStatus,
   publishable: toPrismaPublishable,
   confidence: toPrismaConfidence,
   launchStatus: (value: string) => toUpperSnake(value) as PrismaLaunchStatus,

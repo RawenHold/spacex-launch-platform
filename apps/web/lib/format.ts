@@ -1,26 +1,35 @@
 import type { Locale } from "@/types/space"
 
-export function formatUtcDateTime(value: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, {
+function safeLocale(locale: string): "en" | "ru" {
+  return locale === "ru" ? "ru" : "en"
+}
+
+function safeDate(value: string): Date {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? new Date(0) : date
+}
+
+export function formatUtcDateTime(value: string, locale: Locale | string): string {
+  return new Intl.DateTimeFormat(safeLocale(locale), {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "UTC",
-  }).format(new Date(value))
+  }).format(safeDate(value))
 }
 
-export function formatDate(value: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, {
+export function formatDate(value: string, locale: Locale | string): string {
+  return new Intl.DateTimeFormat(safeLocale(locale), {
     dateStyle: "medium",
     timeZone: "UTC",
-  }).format(new Date(value))
+  }).format(safeDate(value))
 }
 
-export function formatMonth(value: string, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, {
+export function formatMonth(value: string, locale: Locale | string): string {
+  return new Intl.DateTimeFormat(safeLocale(locale), {
     month: "long",
     year: "numeric",
     timeZone: "UTC",
-  }).format(new Date(value))
+  }).format(safeDate(value))
 }
 
 export function getLaunchSortTime(value: { netUtc: string }): number {

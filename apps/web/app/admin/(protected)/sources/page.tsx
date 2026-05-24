@@ -1,4 +1,5 @@
 import { AlertTriangle, ExternalLink, Plus, ShieldCheck } from "lucide-react"
+import Link from "next/link"
 
 import { AdminDataTable } from "@/components/admin/admin-data-table"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
@@ -143,6 +144,15 @@ export default async function AdminSourcesPage() {
                 ) : (
                   <Badge variant="warning">missing</Badge>
                 ),
+            },
+            {
+              key: "actions",
+              label: "Actions",
+              render: (source) => (
+                <Link href={`/admin/sources/${source.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  Edit
+                </Link>
+              ),
             },
           ]}
         />

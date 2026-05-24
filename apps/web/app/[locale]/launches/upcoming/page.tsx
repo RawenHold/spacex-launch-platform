@@ -1,10 +1,13 @@
 import type { Metadata } from "next"
 
 import { LaunchesBoard } from "@/components/launch/launches-board"
+import { DevDataWarning, EmptyState } from "@/components/shared/data-state"
 import { PageHero } from "@/components/shared/page-hero"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
-import { getUpcomingLaunches } from "@/lib/launches"
+import { getPublishedUpcomingLaunches } from "@/lib/public/repository"
 import type { Locale } from "@/types/space"
+
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata({
   params,
@@ -26,7 +29,8 @@ export default async function UpcomingLaunchesPage({
 }) {
   const { locale } = await params
   const dictionary = getDictionary(locale)
-  const launches = getUpcomingLaunches()
+  const result = await getPublishedUpcomingLaunches()
+  const launches = result.items
 
   return (
     <>
@@ -36,7 +40,15 @@ export default async function UpcomingLaunchesPage({
         subtitle={dictionary.pages.upcoming.subtitle}
       />
       <section className="mission-container py-14">
-        <LaunchesBoard launches={launches} locale={locale} dictionary={dictionary} mode="upcoming" />
+        {result.source === "mock_fallback" ? <DevDataWarning /> : null}
+        {launches.length > 0 ? (
+          <LaunchesBoard launches={launches} locale={locale} dictionary={dictionary} mode="upcoming" />
+        ) : (
+          <EmptyState
+            title="No published upcoming launches"
+            description="Only published database records are public. Create and publish an upcoming launch from the admin panel to populate this page."
+          />
+        )}
       </section>
     </>
   )

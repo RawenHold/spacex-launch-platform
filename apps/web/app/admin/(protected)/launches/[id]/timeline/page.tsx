@@ -10,6 +10,7 @@ import { buttonVariants } from "@/components/ui/button"
 import {
   createTimelineEventAction,
   deleteTimelineEventAction,
+  updateTimelineEventAction,
   updateTimelineEventStatusAction,
 } from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
@@ -170,7 +171,48 @@ export default async function AdminTimelineBuilderPage({
                 key: "actions",
                 label: "Actions",
                 render: (event) => (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col gap-3">
+                    <details className="rounded-lg border border-border/70 bg-background/50 p-3">
+                      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.1em] text-foreground">
+                        Edit event
+                      </summary>
+                      <form action={updateTimelineEventAction} className="mt-3 grid gap-2">
+                        <input type="hidden" name="id" value={event.id} />
+                        <input type="hidden" name="launchId" value={launch.id} />
+                        <input name="sortOrder" type="number" min={0} defaultValue={event.sortOrder} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs" />
+                        <input name="relativeTime" defaultValue={event.relativeTime} required pattern="T[+-][0-9]{2}:[0-9]{2}" className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs" />
+                        <select name="type" defaultValue={event.type} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                          {[
+                            "countdown",
+                            "liftoff",
+                            "max_q",
+                            "meco",
+                            "stage_separation",
+                            "ses",
+                            "seco",
+                            "entry_burn",
+                            "landing_burn",
+                            "booster_landing",
+                            "payload_deploy",
+                            "custom",
+                          ].map((type) => (
+                            <option key={type} value={type}>{type.replaceAll("_", " ")}</option>
+                          ))}
+                        </select>
+                        <select name="status" defaultValue={event.status} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                          {["planned", "confirmed", "estimated", "skipped", "failed"].map((status) => (
+                            <option key={status} value={status}>{status}</option>
+                          ))}
+                        </select>
+                        <input name="titleEn" defaultValue={event.title.en} required className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs" />
+                        <input name="titleRu" defaultValue={event.title.ru} required className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs" />
+                        <textarea name="descriptionEn" defaultValue={event.description.en} required className="min-h-16 rounded-lg border border-input bg-background/60 px-2 py-2 text-xs" />
+                        <textarea name="descriptionRu" defaultValue={event.description.ru} required className="min-h-16 rounded-lg border border-input bg-background/60 px-2 py-2 text-xs" />
+                        <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                          Save event
+                        </button>
+                      </form>
+                    </details>
                     <form action={deleteTimelineEventAction}>
                       <input type="hidden" name="id" value={event.id} />
                       <input type="hidden" name="launchId" value={launch.id} />

@@ -1,4 +1,5 @@
 import { Bot, FilePlus2 } from "lucide-react"
+import Link from "next/link"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
 import { AdminDataTable } from "@/components/admin/admin-data-table"
@@ -119,6 +120,15 @@ export default async function AdminArticlesPage() {
                 ) : (
                   <Badge variant="outline">none</Badge>
                 ),
+            },
+            {
+              key: "actions",
+              label: "Actions",
+              render: (article) => (
+                <Link href={`/admin/articles/${article.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  Edit
+                </Link>
+              ),
             },
           ]}
         />

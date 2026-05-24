@@ -18,6 +18,7 @@ Supabase Auth is not integrated in this stage because there is no Supabase proje
 
 - `apps/web/prisma/schema.prisma` - database schema.
 - `apps/web/prisma/migrations/202605240001_admin_backend_foundation/migration.sql` - initial SQL migration.
+- `apps/web/prisma/migrations/202605250001_admin_stabilization/migration.sql` - admin user status and rate-limit audit event migration.
 - `apps/web/prisma/seed.ts` - safe seed script.
 - `apps/web/prisma.config.ts` - Prisma CLI config and seed path.
 - `apps/web/lib/db.ts` - Prisma Client singleton.
@@ -40,6 +41,30 @@ Implemented persistent models:
 - `AuditLog`
 
 The schema stores bilingual fields as JSON with the current shape `{ en, ru }`, while keeping the application types ready for future `es`, `it`, and `fr`.
+
+## Public Read Policy
+
+Public pages read through `apps/web/lib/public/repository.ts`, not directly from components.
+
+Public queries only return:
+
+- launches with `publishStatus = PUBLISHED` and `isPublished = true`
+- articles/news/FAQ with `publishStatus = PUBLISHED`
+
+Draft, in-review, rejected, and archived records are not visible publicly.
+
+Mock data is isolated as a development fallback only. If the database has no published rows or is unavailable during local development, the page can show local mock data with a visible development warning. Production returns graceful empty states instead of mock data.
+
+Repository methods:
+
+- `getPublishedUpcomingLaunches()`
+- `getPublishedPastLaunches()`
+- `getPublishedLaunchBySlug(slug)`
+- `getFeaturedPublishedLaunch()`
+- `getPublishedArticles()`
+- `getPublishedNews()`
+- `getPublishedFAQ()`
+- `getLaunchCalendarItems()`
 
 ## Migrations
 
