@@ -58,13 +58,15 @@ Admin additions:
 
 - `/admin/audit` for admin-only audit review with masked JSON details.
 - `/admin/users` for admin-only user records, roles, and status.
+- `/admin/sync` for manual Launch Library 2 import runs.
 - Detail/edit pages for launches, timeline events, articles, news, FAQ, and sources.
 - In-memory rate limiting for admin login, write actions, and admin API routes.
+- External sync layer in `apps/web/lib/server/sync` for fetching, normalizing, conflict detection, import records, and audit logging.
 
 Known stabilization limitations:
 
 - Rate limiting is in-memory and must be replaced before multi-instance deployment.
-- External SpaceX data sync is not integrated yet.
+- External SpaceX data sync is manual-only and imports drafts for review.
 - YouTube Data API and OpenAI API remain intentionally unintegrated.
 - Seed data is placeholder content and should not be treated as official launch data.
 

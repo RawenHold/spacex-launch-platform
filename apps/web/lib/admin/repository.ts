@@ -47,6 +47,8 @@ type EntityType =
   | "faq_item"
   | "source_record"
   | "source_conflict"
+  | "external_sync_run"
+  | "external_import_record"
   | "ai_draft"
   | "settings"
 
@@ -285,6 +287,8 @@ function entityTypeToPrisma(value: EntityType) {
     faq_item: "FAQ_ITEM",
     source_record: "SOURCE_RECORD",
     source_conflict: "SOURCE_CONFLICT",
+    external_sync_run: "EXTERNAL_SYNC_RUN",
+    external_import_record: "EXTERNAL_IMPORT_RECORD",
     ai_draft: "AI_DRAFT",
     settings: "SETTINGS",
   } as const

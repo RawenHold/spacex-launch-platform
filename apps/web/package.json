@@ -14,7 +14,9 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "db:seed:dry-run": "tsx prisma/seed.ts --dry-run"
+    "db:seed:dry-run": "tsx prisma/seed.ts --dry-run",
+    "sync:dry-run": "tsx scripts/sync-launch-library.ts --dry-run",
+    "sync:launch-library": "tsx scripts/sync-launch-library.ts --live"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

@@ -105,6 +105,25 @@ enum SourceConflictStatus {
   RESOLVED  @map("resolved")
 }
 
+enum ExternalSyncProvider {
+  LAUNCH_LIBRARY @map("launch_library")
+}
+
+enum ExternalSyncRunStatus {
+  RUNNING @map("running")
+  SUCCESS @map("success")
+  PARTIAL @map("partial")
+  FAILED  @map("failed")
+}
+
+enum ExternalImportSyncStatus {
+  IMPORTED @map("imported")
+  UPDATED  @map("updated")
+  SKIPPED  @map("skipped")
+  CONFLICT @map("conflict")
+  ERROR    @map("error")
+}
+
 enum AIDraftType {
   LAUNCH_SUMMARY      @map("launch_summary")
   ARTICLE             @map("article")
@@ -129,6 +148,8 @@ enum AdminEntityType {
   TIMELINE_EVENT @map("timeline_event")
   SOURCE_RECORD  @map("source_record")
   SOURCE_CONFLICT @map("source_conflict")
+  EXTERNAL_SYNC_RUN @map("external_sync_run")
+  EXTERNAL_IMPORT_RECORD @map("external_import_record")
   ARTICLE        @map("article")
   NEWS_ITEM      @map("news_item")
   FAQ_ITEM       @map("faq_item")
@@ -177,6 +198,7 @@ model AdminUser {
   approvedRecords  ApprovalRecord[]  @relation("ApprovedApprovals")
   rejectedRecords  ApprovalRecord[]  @relation("RejectedApprovals")
   aiDrafts         AIDraft[]         @relation("AIDraftCreator")
+  externalSyncRuns ExternalSyncRun[] @relation("ExternalSyncRequester")
 
   @@map("admin_users")
 }
@@ -208,6 +230,14 @@ model Launch {
   isMock                  Boolean            @default(false) @map("is_mock")
   manualOverride          Boolean            @default(false) @map("manual_override")
   aiGenerated             Boolean            @default(false) @map("ai_generated")
+  externalProvider        ExternalSyncProvider? @map("external_provider")
+  externalId              String?            @map("external_id")
+  importedAt              DateTime?          @map("imported_at")
+  lastSyncedAt            DateTime?          @map("last_synced_at")
+  syncStatus              ExternalImportSyncStatus? @map("sync_status")
+  syncHash                String?            @map("sync_hash")
+  importBatchId           String?            @map("import_batch_id")
+  externalRawJson         Json?              @map("external_raw_json")
   createdAt               DateTime           @default(now()) @map("created_at")
   updatedAt               DateTime           @updatedAt @map("updated_at")
 
@@ -217,7 +247,53 @@ model Launch {
   @@index([status])
   @@index([publishStatus])
   @@index([launchDateTimeUtc])
+  @@index([externalProvider, externalId])
+  @@index([importBatchId])
   @@map("launches")
+}
+
+model ExternalSyncRun {
+  id            String                @id @default(cuid())
+  provider      ExternalSyncProvider
+  status        ExternalSyncRunStatus @default(RUNNING)
+  startedAt     DateTime              @default(now()) @map("started_at")
+  finishedAt    DateTime?             @map("finished_at")
+  requestedById String?               @map("requested_by_id")
+  importedCount Int                   @default(0) @map("imported_count")
+  updatedCount  Int                   @default(0) @map("updated_count")
+  skippedCount  Int                   @default(0) @map("skipped_count")
+  conflictCount Int                   @default(0) @map("conflict_count")
+  errorCount    Int                   @default(0) @map("error_count")
+  errorMessage  String?               @map("error_message")
+  metadataJson  Json?                 @map("metadata_json")
+
+  requestedBy AdminUser? @relation("ExternalSyncRequester", fields: [requestedById], references: [id])
+  imports     ExternalImportRecord[]
+
+  @@index([provider, status, startedAt])
+  @@map("external_sync_runs")
+}
+
+model ExternalImportRecord {
+  id             String               @id @default(cuid())
+  provider       ExternalSyncProvider
+  externalId     String               @map("external_id")
+  entityType     AdminEntityType      @map("entity_type")
+  entityId       String?              @map("entity_id")
+  importBatchId  String               @map("import_batch_id")
+  syncRunId      String?              @map("sync_run_id")
+  rawJson        Json                 @map("raw_json")
+  normalizedJson Json                 @map("normalized_json")
+  hash           String
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  syncRun ExternalSyncRun? @relation(fields: [syncRunId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, externalId, importBatchId])
+  @@index([provider, externalId])
+  @@index([entityType, entityId])
+  @@index([importBatchId])
+  @@map("external_import_records")
 }
 
 model MissionTimelineEvent {

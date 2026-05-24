@@ -136,6 +136,26 @@ Admin-only user management is available at:
 
 Admins can create placeholder invited user records, change roles, and change user status. The system prevents disabling or de-activating the last active human admin. AI Moderator remains a system identity and should not be assigned as a normal human login role.
 
+## External Sync Security
+
+Manual Launch Library sync is available at:
+
+```text
+/admin/sync
+```
+
+Controls:
+
+- admin-only route and action
+- server-side environment gate with `ENABLE_EXTERNAL_SYNC`
+- admin write rate limit
+- audit logs for sync run start/finish and imported launch changes
+- API keys never rendered in UI
+- imported records are draft/unpublished by default
+- approved or published records are not overwritten silently
+
+Before production scheduling, move rate limits to centralized storage and add monitoring for sync failures and conflict spikes.
+
 ## Secret Handling
 
 Never commit real secrets. Required secrets are documented in:

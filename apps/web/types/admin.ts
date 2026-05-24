@@ -85,6 +85,8 @@ export type AdminEntityType =
   | "timeline_event"
   | "source_record"
   | "source_conflict"
+  | "external_sync_run"
+  | "external_import_record"
   | "article"
   | "news_item"
   | "faq_item"
@@ -213,6 +215,13 @@ export interface AdminLaunchRecord {
   isMock: boolean
   manualOverride: boolean
   aiGenerated: boolean
+  externalProvider?: "launch_library"
+  externalId?: string
+  importedAt?: string
+  lastSyncedAt?: string
+  syncStatus?: "imported" | "updated" | "skipped" | "conflict" | "error"
+  syncHash?: string
+  importBatchId?: string
   approval: ApprovalRecord
   updatedAt: string
 }

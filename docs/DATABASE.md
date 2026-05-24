@@ -19,6 +19,7 @@ Supabase Auth is not integrated in this stage because there is no Supabase proje
 - `apps/web/prisma/schema.prisma` - database schema.
 - `apps/web/prisma/migrations/202605240001_admin_backend_foundation/migration.sql` - initial SQL migration.
 - `apps/web/prisma/migrations/202605250001_admin_stabilization/migration.sql` - admin user status and rate-limit audit event migration.
+- `apps/web/prisma/migrations/202605250002_external_sync_foundation/migration.sql` - Launch Library sync run/import record support and import metadata on launches.
 - `apps/web/prisma/seed.ts` - safe seed script.
 - `apps/web/prisma.config.ts` - Prisma CLI config and seed path.
 - `apps/web/lib/db.ts` - Prisma Client singleton.
@@ -39,6 +40,8 @@ Implemented persistent models:
 - `AIDraft`
 - `ApprovalRecord`
 - `AuditLog`
+- `ExternalSyncRun`
+- `ExternalImportRecord`
 
 The schema stores bilingual fields as JSON with the current shape `{ en, ru }`, while keeping the application types ready for future `es`, `it`, and `fr`.
 
@@ -55,6 +58,8 @@ Draft, in-review, rejected, and archived records are not visible publicly.
 
 Mock data is isolated as a development fallback only. If the database has no published rows or is unavailable during local development, the page can show local mock data with a visible development warning. Production returns graceful empty states instead of mock data.
 
+Imported external records remain private because they are inserted as unpublished drafts. Public DB queries do not include imported drafts until an admin explicitly approves and publishes them.
+
 Repository methods:
 
 - `getPublishedUpcomingLaunches()`
@@ -65,6 +70,38 @@ Repository methods:
 - `getPublishedNews()`
 - `getPublishedFAQ()`
 - `getLaunchCalendarItems()`
+
+## External Sync Tables
+
+`ExternalSyncRun` stores each manual Launch Library sync run:
+
+- provider
+- status
+- start/finish timestamps
+- requesting admin
+- imported/updated/skipped/conflict/error counts
+- safe metadata and error message
+
+`ExternalImportRecord` stores raw and normalized payload snapshots for traceability:
+
+- provider
+- external id
+- entity type/id
+- import batch id
+- raw JSON
+- normalized JSON
+- hash
+
+`Launch` also stores import metadata:
+
+- `externalProvider`
+- `externalId`
+- `importedAt`
+- `lastSyncedAt`
+- `syncStatus`
+- `syncHash`
+- `importBatchId`
+- `externalRawJson`
 
 ## Migrations
 

@@ -1,5 +1,6 @@
 import type {
   AdminEntityType as PrismaEntityType,
+  ExternalImportSyncStatus as PrismaExternalImportSyncStatus,
   AdminLaunchStatus as PrismaLaunchStatus,
   AdminRole as PrismaRole,
   AdminUserStatus as PrismaUserStatus,
@@ -207,6 +208,17 @@ export function launchFromDb(launch: LaunchWithSources): AdminLaunchRecord {
     isMock: launch.isMock,
     manualOverride: launch.manualOverride,
     aiGenerated: launch.aiGenerated,
+    externalProvider: launch.externalProvider
+      ? (fromUpperSnake(launch.externalProvider) as AdminLaunchRecord["externalProvider"])
+      : undefined,
+    externalId: launch.externalId ?? undefined,
+    importedAt: launch.importedAt?.toISOString(),
+    lastSyncedAt: launch.lastSyncedAt?.toISOString(),
+    syncStatus: launch.syncStatus
+      ? (fromUpperSnake(launch.syncStatus as PrismaExternalImportSyncStatus) as AdminLaunchRecord["syncStatus"])
+      : undefined,
+    syncHash: launch.syncHash ?? undefined,
+    importBatchId: launch.importBatchId ?? undefined,
     approval: approvalSnapshot(launch.publishStatus),
     updatedAt: launch.updatedAt.toISOString(),
   }

@@ -6,6 +6,7 @@ import { z } from "zod"
 import { requireAdminPermission } from "@/lib/admin/auth"
 import { enforceAdminWriteRateLimit } from "@/lib/admin/rate-limit"
 import { getAdminRepository } from "@/lib/admin/repository"
+import { runLaunchLibrarySync } from "@/lib/server/sync/sync-service"
 import type {
   AdminLaunchRecord,
   AdminRole,
@@ -666,6 +667,30 @@ export async function updateAdminUserStatusAction(formData: FormData) {
 
   await repository.updateAdminUserStatus(parsed.id, parsed.status, user.id)
   revalidateAdmin(["/admin/users"])
+}
+
+export async function runLaunchLibrarySyncAction(formData: FormData) {
+  const user = await requireWritePermission(["manage_settings"])
+
+  if (process.env.ENABLE_EXTERNAL_SYNC !== "true") {
+    throw new Error("External sync is disabled. Set ENABLE_EXTERNAL_SYNC=true to run manual imports.")
+  }
+
+  const parsed = z
+    .object({
+      mode: z.enum(["upcoming", "past", "both"]),
+    })
+    .parse({
+      mode: formData.get("mode") ?? "upcoming",
+    })
+
+  await runLaunchLibrarySync({
+    mode: parsed.mode,
+    requestedById: user.id,
+    dryRun: false,
+    limit: 25,
+  })
+  revalidateAdmin(["/admin/sync", "/admin/launches", "/admin/sources", "/admin/audit"])
 }
 
 export type LaunchStatusForForm = AdminLaunchRecord["status"]

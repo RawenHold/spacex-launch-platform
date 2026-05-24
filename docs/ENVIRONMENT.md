@@ -45,11 +45,18 @@ npx auth secret
 ```text
 DIRECT_URL=
 ENABLE_MOCK_FALLBACK=true
+LAUNCH_LIBRARY_BASE_URL=https://ll.thespacedevs.com/2.3.0
+LAUNCH_LIBRARY_API_KEY=
+ENABLE_EXTERNAL_SYNC=false
 ```
 
 Some hosted Postgres providers use a pooled connection for runtime and a direct connection for migrations. The current Prisma schema uses `DATABASE_URL`; add `directUrl` later if the selected host requires it.
 
 `ENABLE_MOCK_FALLBACK=false` disables local development fallback to static mock data. Production never uses fallback mock data.
+
+`ENABLE_EXTERNAL_SYNC=true` allows manual Launch Library sync from `/admin/sync`. Keep it false in environments where imports should be disabled.
+
+`LAUNCH_LIBRARY_API_KEY` is optional; Launch Library can be used without a key for basic access, but configured keys must remain server-only.
 
 ## Future Placeholders
 
@@ -76,6 +83,7 @@ cd apps/web
 npm run db:validate
 npm run prisma:generate
 npm run db:seed:dry-run
+npm run sync:dry-run
 npm run lint
 npm run typecheck
 npm run build
