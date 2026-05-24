@@ -1,4 +1,4 @@
-import { ExternalLink, FilePlus2, Pencil } from "lucide-react"
+import { ExternalLink, FilePlus2 } from "lucide-react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
 import { AdminDataTable } from "@/components/admin/admin-data-table"
@@ -6,6 +6,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import { createNewsAction, updateNewsStatusAction } from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
 import type { AdminNewsItem } from "@/types/admin"
 
@@ -21,8 +22,8 @@ export default async function AdminNewsPage() {
         description="Company news workflow with source URL, source name, publication date, bilingual summaries, confidence labels, and approval status."
         actions={
           <button
-            type="button"
-            disabled
+            type="submit"
+            form="create-news-form"
             className={buttonVariants({ variant: "default", size: "sm" })}
           >
             <FilePlus2 data-icon aria-hidden="true" />
@@ -30,6 +31,32 @@ export default async function AdminNewsPage() {
           </button>
         }
       />
+
+      <section className="mission-panel rounded-lg p-5">
+        <p className="mission-eyebrow">Create</p>
+        <h3 className="mt-2 text-xl font-black uppercase tracking-[0.08em]">
+          New news draft
+        </h3>
+        <form id="create-news-form" action={createNewsAction} className="mt-5 grid gap-4 lg:grid-cols-3">
+          <input name="titleEn" placeholder="Title EN" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="titleRu" placeholder="Title RU" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="slug" placeholder="news-slug" required pattern="[a-z0-9-]+" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="sourceName" placeholder="Source name" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="sourceUrl" placeholder="https://example.com" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="publicationDate" type="datetime-local" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <select name="confidenceLevel" defaultValue="estimated" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {["official_confirmed", "admin_verified", "multi_source_confirmed", "estimated", "unverified", "conflicting"].map((level) => (
+              <option key={level} value={level}>{level.replaceAll("_", " ")}</option>
+            ))}
+          </select>
+          <input name="summaryEn" placeholder="Summary EN" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="summaryRu" placeholder="Summary RU" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <button type="submit" className={buttonVariants({ variant: "default", size: "sm" })}>
+            <FilePlus2 data-icon aria-hidden="true" />
+            Save draft
+          </button>
+        </form>
+      </section>
 
       <section className="mission-panel rounded-lg p-5">
         <AdminDataTable<AdminNewsItem>
@@ -87,20 +114,19 @@ export default async function AdminNewsPage() {
             {
               key: "approval",
               label: "Approval",
-              render: (item) => <AdminApprovalBadge status={item.publishStatus} />,
-            },
-            {
-              key: "actions",
-              label: "Actions",
-              render: () => (
-                <button
-                  type="button"
-                  disabled
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  <Pencil data-icon aria-hidden="true" />
-                  Edit
-                </button>
+              render: (item) => (
+                <form action={updateNewsStatusAction} className="flex flex-col gap-2">
+                  <input type="hidden" name="id" value={item.id} />
+                  <AdminApprovalBadge status={item.publishStatus} />
+                  <select name="status" defaultValue={item.publishStatus} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                    {["draft", "in_review", "approved", "published", "rejected", "archived"].map((status) => (
+                      <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Save
+                  </button>
+                </form>
               ),
             },
           ]}

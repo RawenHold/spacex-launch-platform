@@ -1,4 +1,4 @@
-import { Bot, FilePlus2, Pencil } from "lucide-react"
+import { Bot, FilePlus2 } from "lucide-react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
 import { AdminDataTable } from "@/components/admin/admin-data-table"
@@ -6,6 +6,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import { createArticleAction, updateArticleStatusAction } from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
 import type { AdminArticle } from "@/types/admin"
 
@@ -24,8 +25,8 @@ export default async function AdminArticlesPage() {
         description="Article CRUD foundation with bilingual body fields, SEO metadata, source attachments, AI draft links, and approval history."
         actions={
           <button
-            type="button"
-            disabled
+            type="submit"
+            form="create-article-form"
             className={buttonVariants({ variant: "default", size: "sm" })}
           >
             <FilePlus2 data-icon aria-hidden="true" />
@@ -33,6 +34,25 @@ export default async function AdminArticlesPage() {
           </button>
         }
       />
+
+      <section className="mission-panel rounded-lg p-5">
+        <p className="mission-eyebrow">Create</p>
+        <h3 className="mt-2 text-xl font-black uppercase tracking-[0.08em]">
+          New article draft
+        </h3>
+        <form id="create-article-form" action={createArticleAction} className="mt-5 grid gap-4 lg:grid-cols-2">
+          <input name="titleEn" placeholder="Title EN" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="titleRu" placeholder="Title RU" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="slug" placeholder="article-slug" required pattern="[a-z0-9-]+" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="category" placeholder="mission-guide" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <textarea name="bodyEn" placeholder="Body EN" required className="min-h-24 rounded-lg border border-input bg-background/60 px-3 py-2 text-sm" />
+          <textarea name="bodyRu" placeholder="Body RU" required className="min-h-24 rounded-lg border border-input bg-background/60 px-3 py-2 text-sm" />
+          <button type="submit" className={buttonVariants({ variant: "default", size: "sm", className: "lg:col-span-2" })}>
+            <FilePlus2 data-icon aria-hidden="true" />
+            Save draft
+          </button>
+        </form>
+      </section>
 
       <section className="mission-panel rounded-lg p-5">
         <AdminDataTable<AdminArticle>
@@ -75,7 +95,20 @@ export default async function AdminArticlesPage() {
             {
               key: "approval",
               label: "Approval",
-              render: (article) => <AdminApprovalBadge status={article.publishStatus} />,
+              render: (article) => (
+                <form action={updateArticleStatusAction} className="flex flex-col gap-2">
+                  <input type="hidden" name="id" value={article.id} />
+                  <AdminApprovalBadge status={article.publishStatus} />
+                  <select name="status" defaultValue={article.publishStatus} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                    {["draft", "in_review", "approved", "published", "rejected", "archived"].map((status) => (
+                      <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Save
+                  </button>
+                </form>
+              ),
             },
             {
               key: "ai",
@@ -86,20 +119,6 @@ export default async function AdminArticlesPage() {
                 ) : (
                   <Badge variant="outline">none</Badge>
                 ),
-            },
-            {
-              key: "actions",
-              label: "Actions",
-              render: () => (
-                <button
-                  type="button"
-                  disabled
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  <Pencil data-icon aria-hidden="true" />
-                  Edit
-                </button>
-              ),
             },
           ]}
         />

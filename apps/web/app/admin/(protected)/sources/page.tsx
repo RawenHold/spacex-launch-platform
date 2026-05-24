@@ -5,6 +5,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import { createSourceAction, updateSourceTrustAction } from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
 import type { AdminSourceRecord, SourceConflict } from "@/types/admin"
 
@@ -23,8 +24,8 @@ export default async function AdminSourcesPage() {
         description="Source management foundation for official, API, secondary, and manual records with trust level, last checked placeholders, notes, and conflict warnings."
         actions={
           <button
-            type="button"
-            disabled
+            type="submit"
+            form="create-source-form"
             className={buttonVariants({ variant: "default", size: "sm" })}
           >
             <Plus data-icon aria-hidden="true" />
@@ -32,6 +33,44 @@ export default async function AdminSourcesPage() {
           </button>
         }
       />
+
+      <section className="mission-panel rounded-lg p-5">
+        <p className="mission-eyebrow">Create</p>
+        <h3 className="mt-2 text-xl font-black uppercase tracking-[0.08em]">
+          Add source record
+        </h3>
+        <form id="create-source-form" action={createSourceAction} className="mt-5 grid gap-4 lg:grid-cols-3">
+          <input name="publisher" placeholder="Publisher" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="titleEn" placeholder="Title EN" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="titleRu" placeholder="Title RU" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="url" placeholder="https://example.com" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <select name="kind" defaultValue="other" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {["official_spacex", "official_youtube", "nasa", "faa", "launch_library", "spaceflight_now", "nasaspaceflight", "next_spaceflight", "mock_dataset", "other"].map((kind) => (
+              <option key={kind} value={kind}>{kind.replaceAll("_", " ")}</option>
+            ))}
+          </select>
+          <select name="sourceType" defaultValue="manual" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {["official", "api", "secondary", "manual"].map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+          <select name="trustLevel" defaultValue="low" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {["primary", "secondary", "low"].map((trust) => (
+              <option key={trust} value={trust}>{trust}</option>
+            ))}
+          </select>
+          <select name="confidenceLevel" defaultValue="estimated" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {["official_confirmed", "admin_verified", "multi_source_confirmed", "estimated", "unverified", "conflicting"].map((level) => (
+              <option key={level} value={level}>{level.replaceAll("_", " ")}</option>
+            ))}
+          </select>
+          <input name="notes" placeholder="Notes" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <button type="submit" className={buttonVariants({ variant: "default", size: "sm" })}>
+            <Plus data-icon aria-hidden="true" />
+            Save source
+          </button>
+        </form>
+      </section>
 
       <section className="mission-panel rounded-lg p-5">
         <AdminDataTable<AdminSourceRecord>
@@ -52,10 +91,21 @@ export default async function AdminSourcesPage() {
               key: "type",
               label: "Type",
               render: (source) => (
-                <div className="flex flex-wrap gap-2">
+                <form action={updateSourceTrustAction} className="flex flex-col gap-2">
+                  <input type="hidden" name="id" value={source.id} />
+                  <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">{source.sourceType}</Badge>
                   <AdminSourceConfidenceBadge trustLevel={source.trustLevel} />
-                </div>
+                  </div>
+                  <select name="trustLevel" defaultValue={source.trustLevel} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                    {["primary", "secondary", "low"].map((trust) => (
+                      <option key={trust} value={trust}>{trust}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Save
+                  </button>
+                </form>
               ),
             },
             {

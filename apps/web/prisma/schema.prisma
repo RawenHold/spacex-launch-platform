@@ -1,0 +1,414 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  ADMIN        @map("admin")
+  EDITOR       @map("editor")
+  RESEARCHER   @map("researcher")
+  AI_MODERATOR @map("ai_moderator")
+}
+
+enum DataConfidenceLevel {
+  OFFICIAL_CONFIRMED    @map("official_confirmed")
+  ADMIN_VERIFIED        @map("admin_verified")
+  MULTI_SOURCE_CONFIRMED @map("multi_source_confirmed")
+  ESTIMATED             @map("estimated")
+  UNVERIFIED            @map("unverified")
+  CONFLICTING           @map("conflicting")
+}
+
+enum PublishableStatus {
+  DRAFT     @map("draft")
+  IN_REVIEW @map("in_review")
+  APPROVED  @map("approved")
+  PUBLISHED @map("published")
+  REJECTED  @map("rejected")
+  ARCHIVED  @map("archived")
+}
+
+enum AdminLaunchStatus {
+  DRAFT           @map("draft")
+  SCHEDULED       @map("scheduled")
+  CONFIRMED       @map("confirmed")
+  LIVE            @map("live")
+  DELAYED         @map("delayed")
+  SCRUBBED        @map("scrubbed")
+  SUCCESS         @map("success")
+  FAILURE         @map("failure")
+  PARTIAL_SUCCESS @map("partial_success")
+}
+
+enum AdminTimelineEventType {
+  COUNTDOWN         @map("countdown")
+  LIFTOFF           @map("liftoff")
+  MAX_Q             @map("max_q")
+  MECO              @map("meco")
+  STAGE_SEPARATION  @map("stage_separation")
+  SES               @map("ses")
+  SECO              @map("seco")
+  ENTRY_BURN        @map("entry_burn")
+  LANDING_BURN      @map("landing_burn")
+  BOOSTER_LANDING   @map("booster_landing")
+  PAYLOAD_DEPLOY    @map("payload_deploy")
+  CUSTOM            @map("custom")
+}
+
+enum AdminTimelineEventStatus {
+  PLANNED   @map("planned")
+  CONFIRMED @map("confirmed")
+  ESTIMATED @map("estimated")
+  SKIPPED   @map("skipped")
+  FAILED    @map("failed")
+}
+
+enum SourceKind {
+  OFFICIAL_SPACEX  @map("official_spacex")
+  OFFICIAL_YOUTUBE @map("official_youtube")
+  NASA             @map("nasa")
+  FAA              @map("faa")
+  LAUNCH_LIBRARY   @map("launch_library")
+  SPACEFLIGHT_NOW  @map("spaceflight_now")
+  NASASPACEFLIGHT  @map("nasaspaceflight")
+  NEXT_SPACEFLIGHT @map("next_spaceflight")
+  MOCK_DATASET     @map("mock_dataset")
+  OTHER            @map("other")
+}
+
+enum AdminSourceType {
+  OFFICIAL  @map("official")
+  API       @map("api")
+  SECONDARY @map("secondary")
+  MANUAL    @map("manual")
+}
+
+enum AdminTrustLevel {
+  PRIMARY   @map("primary")
+  SECONDARY @map("secondary")
+  LOW       @map("low")
+}
+
+enum SourceConflictStatus {
+  OPEN      @map("open")
+  REVIEWING @map("reviewing")
+  RESOLVED  @map("resolved")
+}
+
+enum AIDraftType {
+  LAUNCH_SUMMARY      @map("launch_summary")
+  ARTICLE             @map("article")
+  NEWS_SUMMARY        @map("news_summary")
+  FAQ                 @map("faq")
+  SEO                 @map("seo")
+  TIMELINE_SUGGESTION @map("timeline_suggestion")
+  SOURCE_COMPARISON   @map("source_comparison")
+}
+
+enum AIDraftStatus {
+  GENERATED    @map("generated")
+  NEEDS_REVIEW @map("needs_review")
+  APPROVED     @map("approved")
+  REJECTED     @map("rejected")
+  MERGED       @map("merged")
+}
+
+enum AdminEntityType {
+  ADMIN_USER     @map("admin_user")
+  LAUNCH         @map("launch")
+  TIMELINE_EVENT @map("timeline_event")
+  SOURCE_RECORD  @map("source_record")
+  SOURCE_CONFLICT @map("source_conflict")
+  ARTICLE        @map("article")
+  NEWS_ITEM      @map("news_item")
+  FAQ_ITEM       @map("faq_item")
+  AI_DRAFT       @map("ai_draft")
+  SETTINGS       @map("settings")
+}
+
+enum AuditAction {
+  CREATE            @map("create")
+  UPDATE            @map("update")
+  DELETE            @map("delete")
+  SUBMIT_FOR_REVIEW @map("submit_for_review")
+  APPROVE           @map("approve")
+  REJECT            @map("reject")
+  PUBLISH           @map("publish")
+  ARCHIVE           @map("archive")
+  OVERRIDE          @map("override")
+  SIGN_IN           @map("sign_in")
+}
+
+enum FAQGroup {
+  BASICS      @map("basics")
+  FALCON9     @map("falcon9")
+  STARSHIP    @map("starship")
+  TIMELINE    @map("timeline")
+  LIVESTREAMS @map("livestreams")
+  ACCURACY    @map("accuracy")
+  REMINDERS   @map("reminders")
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  email        String?   @unique
+  name         String
+  role         AdminRole
+  passwordHash String?   @map("password_hash")
+  isHuman      Boolean   @default(true) @map("is_human")
+  lastActiveAt DateTime? @map("last_active_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  auditLogs        AuditLog[]        @relation("AuditActor")
+  submittedRecords ApprovalRecord[]  @relation("SubmittedApprovals")
+  approvedRecords  ApprovalRecord[]  @relation("ApprovedApprovals")
+  rejectedRecords  ApprovalRecord[]  @relation("RejectedApprovals")
+  aiDrafts         AIDraft[]         @relation("AIDraftCreator")
+
+  @@map("admin_users")
+}
+
+model Launch {
+  id                     String             @id @default(cuid())
+  sourceLaunchId          String?            @unique @map("source_launch_id")
+  slug                   String             @unique
+  missionName             Json               @map("mission_name")
+  contentTitle            Json               @map("content_title")
+  contentDescription      Json               @map("content_description")
+  seoTitle                Json               @map("seo_title")
+  metaDescription         Json               @map("meta_description")
+  rocket                  Json
+  launchPad               Json               @map("launch_pad")
+  launchDateTimeUtc       DateTime           @map("launch_date_time_utc")
+  localTimeDisplayHelper  String             @map("local_time_display_helper")
+  trajectory              Json
+  orbit                   String?
+  payload                 Json
+  missionDescription      Json               @map("mission_description")
+  officialUrl             String?            @map("official_url")
+  youtubeUrlOrVideoId     String?            @map("youtube_url_or_video_id")
+  confidenceLevel         DataConfidenceLevel @default(ESTIMATED) @map("confidence_level")
+  status                  AdminLaunchStatus  @default(DRAFT)
+  publishStatus           PublishableStatus  @default(DRAFT) @map("publish_status")
+  isFeatured              Boolean            @default(false) @map("is_featured")
+  isPublished             Boolean            @default(false) @map("is_published")
+  isMock                  Boolean            @default(false) @map("is_mock")
+  manualOverride          Boolean            @default(false) @map("manual_override")
+  aiGenerated             Boolean            @default(false) @map("ai_generated")
+  createdAt               DateTime           @default(now()) @map("created_at")
+  updatedAt               DateTime           @updatedAt @map("updated_at")
+
+  timelineEvents MissionTimelineEvent[]
+  sourceRecords  SourceRecord[]
+
+  @@index([status])
+  @@index([publishStatus])
+  @@index([launchDateTimeUtc])
+  @@map("launches")
+}
+
+model MissionTimelineEvent {
+  id              String                   @id @default(cuid())
+  launchId        String                   @map("launch_id")
+  type            AdminTimelineEventType
+  title           Json
+  description     Json
+  relativeTime    String                   @map("relative_time")
+  status          AdminTimelineEventStatus @default(PLANNED)
+  confidenceLevel DataConfidenceLevel      @default(ESTIMATED) @map("confidence_level")
+  sortOrder       Int                      @default(0) @map("sort_order")
+  approvalStatus  PublishableStatus        @default(DRAFT) @map("approval_status")
+  aiGenerated     Boolean                  @default(false) @map("ai_generated")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  launch Launch @relation(fields: [launchId], references: [id], onDelete: Cascade)
+
+  @@index([launchId, sortOrder])
+  @@map("mission_timeline_events")
+}
+
+model SourceRecord {
+  id                String              @id @default(cuid())
+  launchId          String?             @map("launch_id")
+  articleId         String?             @map("article_id")
+  newsItemId        String?             @map("news_item_id")
+  faqItemId         String?             @map("faq_item_id")
+  kind              SourceKind
+  title             Json
+  publisher         String
+  url               String?
+  retrievedAt       DateTime?           @map("retrieved_at")
+  confidenceLevel   DataConfidenceLevel @default(ESTIMATED) @map("confidence_level")
+  isPrimary         Boolean             @default(false) @map("is_primary")
+  notes             String?
+  sourceType        AdminSourceType     @default(MANUAL) @map("source_type")
+  trustLevel        AdminTrustLevel     @default(LOW) @map("trust_level")
+  lastCheckedAt     DateTime?           @map("last_checked_at")
+  conflictingFields String[]            @default([]) @map("conflicting_fields")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  launch   Launch?   @relation(fields: [launchId], references: [id], onDelete: Cascade)
+  article  Article?  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  newsItem NewsItem? @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+  faqItem  FAQItem?  @relation(fields: [faqItemId], references: [id], onDelete: Cascade)
+
+  @@index([launchId])
+  @@index([articleId])
+  @@index([newsItemId])
+  @@index([faqItemId])
+  @@index([trustLevel])
+  @@map("source_records")
+}
+
+model SourceConflict {
+  id         String               @id @default(cuid())
+  entityType AdminEntityType      @map("entity_type")
+  entityId   String               @map("entity_id")
+  field      String
+  sources    Json
+  summary    String
+  status     SourceConflictStatus @default(OPEN)
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @updatedAt @map("updated_at")
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@map("source_conflicts")
+}
+
+model Article {
+  id              String            @id @default(cuid())
+  slug            String            @unique
+  title           Json
+  body            Json
+  seoTitle        Json              @map("seo_title")
+  metaDescription Json              @map("meta_description")
+  category        String
+  publishStatus   PublishableStatus @default(DRAFT) @map("publish_status")
+  aiDraftId       String?           @map("ai_draft_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  sources SourceRecord[]
+
+  @@index([publishStatus])
+  @@index([category])
+  @@map("articles")
+}
+
+model NewsItem {
+  id              String              @id @default(cuid())
+  slug            String              @unique
+  title           Json
+  summary         Json
+  sourceUrl       String?             @map("source_url")
+  sourceName      String              @map("source_name")
+  publicationDate DateTime            @map("publication_date")
+  confidenceLevel DataConfidenceLevel @default(ESTIMATED) @map("confidence_level")
+  publishStatus   PublishableStatus   @default(DRAFT) @map("publish_status")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  sources SourceRecord[]
+
+  @@index([publishStatus])
+  @@index([publicationDate])
+  @@map("news_items")
+}
+
+model FAQItem {
+  id            String            @id @default(cuid())
+  group         FAQGroup
+  question      Json
+  answer        Json
+  publishStatus PublishableStatus @default(DRAFT) @map("publish_status")
+  sortOrder     Int               @default(0) @map("sort_order")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  sources SourceRecord[]
+
+  @@index([group, sortOrder])
+  @@index([publishStatus])
+  @@map("faq_items")
+}
+
+model AIDraft {
+  id                String          @id @default(cuid())
+  type              AIDraftType
+  status            AIDraftStatus   @default(GENERATED)
+  createdById       String          @map("created_by_id")
+  relatedEntityType AdminEntityType @map("related_entity_type")
+  relatedEntityId   String          @map("related_entity_id")
+  title             Json
+  content           Json
+  citations         Json
+  confidenceNotes   Json            @map("confidence_notes")
+  riskNotes         Json            @map("risk_notes")
+  sourceComparison  Json?           @map("source_comparison")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  createdBy AdminUser @relation("AIDraftCreator", fields: [createdById], references: [id])
+
+  @@index([status])
+  @@index([relatedEntityType, relatedEntityId])
+  @@map("ai_drafts")
+}
+
+model ApprovalRecord {
+  id          String            @id @default(cuid())
+  entityType  AdminEntityType    @map("entity_type")
+  entityId    String             @map("entity_id")
+  status      PublishableStatus
+  submittedById String?          @map("submitted_by_id")
+  approvedById  String?          @map("approved_by_id")
+  rejectedById  String?          @map("rejected_by_id")
+  submittedAt   DateTime?        @map("submitted_at")
+  approvedAt    DateTime?        @map("approved_at")
+  rejectedAt    DateTime?        @map("rejected_at")
+  publishedAt   DateTime?        @map("published_at")
+  archivedAt    DateTime?        @map("archived_at")
+  comments      String?
+  diffNotes     String?          @map("diff_notes")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  submittedBy AdminUser? @relation("SubmittedApprovals", fields: [submittedById], references: [id])
+  approvedBy  AdminUser? @relation("ApprovedApprovals", fields: [approvedById], references: [id])
+  rejectedBy  AdminUser? @relation("RejectedApprovals", fields: [rejectedById], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@map("approval_records")
+}
+
+model AuditLog {
+  id         String          @id @default(cuid())
+  actorId    String?         @map("actor_id")
+  action     AuditAction
+  entityType AdminEntityType @map("entity_type")
+  entityId   String          @map("entity_id")
+  before     Json?
+  after      Json?
+  metadata   Json?
+  reason     String?
+  ipAddress  String?         @map("ip_address")
+  userAgent  String?         @map("user_agent")
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  actor AdminUser? @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

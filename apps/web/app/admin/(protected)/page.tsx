@@ -36,7 +36,7 @@ export default async function AdminDashboardPage() {
       <AdminPageHeader
         eyebrow="Mission Ops"
         title="Admin dashboard"
-        description="Source-aware control center for mock launch data, editorial drafts, AI suggestions, and approval state. This MVP is an architecture scaffold, not production auth."
+        description="Source-aware control center for persisted launch data, editorial drafts, AI suggestions, approval state, and audited admin operations."
         actions={
           <>
             <Link

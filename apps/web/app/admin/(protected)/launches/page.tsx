@@ -8,6 +8,11 @@ import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-conf
 import { AdminStatusBadge } from "@/components/admin/admin-status-badge"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import {
+  createLaunchAction,
+  transitionApprovalAction,
+  updateLaunchStatusAction,
+} from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
 import type { AdminLaunchRecord } from "@/types/admin"
 
@@ -49,12 +54,12 @@ export default async function AdminLaunchesPage() {
       <AdminPageHeader
         eyebrow="Launch CMS"
         title="Launch management"
-        description="CRUD foundation for launch records, multilingual mission content, status control, source records, and publication state. The MVP repository is read-only mock data with protected transition endpoints."
+        description="Persistent CRUD foundation for launch records, multilingual mission content, status control, source records, and publication state. Writes are role-gated and audited."
         actions={
           <>
             <button
-              type="button"
-              disabled
+              type="submit"
+              form="create-launch-form"
               className={buttonVariants({ variant: "default", size: "sm" })}
             >
               <FilePlus2 data-icon aria-hidden="true" />
@@ -70,6 +75,51 @@ export default async function AdminLaunchesPage() {
           </>
         }
       />
+
+      <section className="mission-panel rounded-lg p-5">
+        <div className="flex items-center gap-3">
+          <Plus data-icon className="size-4 text-signal-blue" aria-hidden="true" />
+          <div>
+            <p className="mission-eyebrow">Create</p>
+            <h3 className="mt-2 text-xl font-black uppercase tracking-[0.08em]">
+              New launch draft
+            </h3>
+          </div>
+        </div>
+        <form
+          id="create-launch-form"
+          action={createLaunchAction}
+          className="mt-5 grid gap-4 lg:grid-cols-3"
+        >
+          <input name="missionNameEn" placeholder="Mission name EN" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="missionNameRu" placeholder="Mission name RU" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="slug" placeholder="mission-slug" required pattern="[a-z0-9-]+" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="rocketName" placeholder="Falcon 9" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="launchPadName" placeholder="LC-39A" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="launchDateTimeUtc" type="datetime-local" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <select name="status" defaultValue="draft" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {launchStatuses.map((status) => (
+              <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+            ))}
+          </select>
+          <select name="confidenceLevel" defaultValue="estimated" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {[
+              "official_confirmed",
+              "admin_verified",
+              "multi_source_confirmed",
+              "estimated",
+              "unverified",
+              "conflicting",
+            ].map((level) => (
+              <option key={level} value={level}>{level.replaceAll("_", " ")}</option>
+            ))}
+          </select>
+          <button type="submit" className={buttonVariants({ variant: "default", size: "sm" })}>
+            <FilePlus2 data-icon aria-hidden="true" />
+            Save draft
+          </button>
+        </form>
+      </section>
 
       <section className="mission-panel rounded-lg p-5">
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -126,7 +176,20 @@ export default async function AdminLaunchesPage() {
             {
               key: "status",
               label: "Status",
-              render: (launch) => <AdminStatusBadge status={launch.status} />,
+              render: (launch) => (
+                <form action={updateLaunchStatusAction} className="flex flex-col gap-2">
+                  <input type="hidden" name="id" value={launch.id} />
+                  <AdminStatusBadge status={launch.status} />
+                  <select name="status" defaultValue={launch.status} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                    {launchStatuses.map((status) => (
+                      <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Save
+                  </button>
+                </form>
+              ),
             },
             {
               key: "confidence",
@@ -138,7 +201,21 @@ export default async function AdminLaunchesPage() {
             {
               key: "approval",
               label: "Approval",
-              render: (launch) => <AdminApprovalBadge status={launch.publishStatus} />,
+              render: (launch) => (
+                <form action={transitionApprovalAction} className="flex flex-col gap-2">
+                  <input type="hidden" name="entityId" value={launch.id} />
+                  <AdminApprovalBadge status={launch.publishStatus} />
+                  <select name="status" defaultValue={launch.publishStatus} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                    {["draft", "in_review", "approved", "published", "rejected", "archived"].map((status) => (
+                      <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+                    ))}
+                  </select>
+                  <input name="comments" placeholder="Audit note" className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs" />
+                  <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Save
+                  </button>
+                </form>
+              ),
             },
             {
               key: "actions",
@@ -152,14 +229,13 @@ export default async function AdminLaunchesPage() {
                     <ListChecks data-icon aria-hidden="true" />
                     Timeline
                   </Link>
-                  <button
-                    type="button"
-                    disabled
+                  <Link
+                    href={`/admin/launches/${launch.id}/timeline`}
                     className={buttonVariants({ variant: "ghost", size: "sm" })}
                   >
                     <Pencil data-icon aria-hidden="true" />
-                    Edit
-                  </button>
+                    Edit flow
+                  </Link>
                 </div>
               ),
             },

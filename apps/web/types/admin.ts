@@ -27,6 +27,7 @@ export type PublishableStatus =
   | "in_review"
   | "approved"
   | "published"
+  | "rejected"
   | "archived"
 
 export type AdminLaunchStatus =
@@ -218,6 +219,25 @@ export interface AdminNewsItem {
   publicationDate: string
   confidenceLevel: DataConfidenceLevel
   publishStatus: PublishableStatus
+  approval: ApprovalRecord
+  updatedAt: string
+}
+
+export interface AdminFAQItem {
+  id: string
+  group:
+    | "basics"
+    | "falcon9"
+    | "starship"
+    | "timeline"
+    | "livestreams"
+    | "accuracy"
+    | "reminders"
+  question: LocalizedText
+  answer: LocalizedText
+  sources: AdminSourceRecord[]
+  publishStatus: PublishableStatus
+  sortOrder: number
   approval: ApprovalRecord
   updatedAt: string
 }

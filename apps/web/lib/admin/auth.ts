@@ -1,26 +1,31 @@
 import { redirect } from "next/navigation"
 
-import { adminUsers } from "@/data/admin-mock-data"
+import { auth } from "@/auth"
 import { roleCanAny } from "@/lib/admin/permissions"
 import type { AdminPermission, AdminRole, AdminUser } from "@/types/admin"
 
-const mockAdmin = adminUsers.find((user) => user.role === "admin")
-
 export async function getCurrentAdminUser(): Promise<AdminUser | null> {
-  // TODO(production-auth): Replace this local dev guard with Auth.js/NextAuth,
-  // Supabase Auth, or another provider before exposing /admin outside localhost.
-  if (process.env.ADMIN_MOCK_DISABLED === "1") {
+  const session = await auth()
+
+  if (!session?.user?.id || !session.user.role) {
     return null
   }
 
-  return mockAdmin ?? null
+  return {
+    id: session.user.id,
+    email: session.user.email ?? undefined,
+    name: session.user.name ?? "Admin user",
+    role: session.user.role,
+    permissions: session.user.permissions ?? [],
+    isHuman: session.user.role !== "ai_moderator",
+  }
 }
 
 export async function requireAdminUser(): Promise<AdminUser> {
   const user = await getCurrentAdminUser()
 
   if (!user) {
-    redirect("/")
+    redirect("/admin/login")
   }
 
   return user

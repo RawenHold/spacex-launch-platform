@@ -1,7 +1,8 @@
-import { ExternalLink, ShieldAlert } from "lucide-react"
+import { ExternalLink, LogOut, ShieldAlert } from "lucide-react"
 import Link from "next/link"
 
 import { buttonVariants } from "@/components/ui/button"
+import { adminSignOutAction } from "@/lib/admin/login-actions"
 import type { AdminUser } from "@/types/admin"
 
 export function AdminTopbar({ user }: { user: AdminUser }) {
@@ -11,7 +12,7 @@ export function AdminTopbar({ user }: { user: AdminUser }) {
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <ShieldAlert data-icon className="size-4 text-signal-amber" aria-hidden="true" />
           <span>
-            Admin MVP uses a mock local guard. Do not deploy as production auth.
+            Auth.js protects admin routes server-side. Critical writes are role-gated and audited.
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -22,6 +23,12 @@ export function AdminTopbar({ user }: { user: AdminUser }) {
             <ExternalLink data-icon aria-hidden="true" />
             Public site
           </Link>
+          <form action={adminSignOutAction}>
+            <button type="submit" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              <LogOut data-icon aria-hidden="true" />
+              Sign out
+            </button>
+          </form>
         </div>
       </div>
     </header>

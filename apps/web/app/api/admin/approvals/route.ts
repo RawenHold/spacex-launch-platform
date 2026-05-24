@@ -10,6 +10,7 @@ const allowedStatuses: PublishableStatus[] = [
   "in_review",
   "approved",
   "published",
+  "rejected",
   "archived",
 ]
 
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
   const privilegedTransition =
     body.status === "approved" ||
     body.status === "published" ||
+    body.status === "rejected" ||
     body.status === "archived"
 
   if (privilegedTransition && !roleCan(user.role, "approve")) {

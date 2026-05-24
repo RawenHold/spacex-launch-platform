@@ -1,4 +1,4 @@
-import { CheckCircle2, GitMerge, Sparkles, XCircle } from "lucide-react"
+import { CheckCircle2, GitMerge, XCircle } from "lucide-react"
 import type { ComponentProps } from "react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import { updateAIDraftStatusAction } from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
 import type { AIDraft } from "@/types/admin"
 
@@ -29,16 +30,6 @@ export default async function AdminAIDraftsPage() {
         eyebrow="AI Moderator"
         title="AI draft center"
         description="AI can create drafts, source comparisons, summaries, SEO suggestions, FAQ ideas, and timeline suggestions. It cannot approve, publish, delete, or overwrite official data."
-        actions={
-          <button
-            type="button"
-            disabled
-            className={buttonVariants({ variant: "default", size: "sm" })}
-          >
-            <Sparkles data-icon aria-hidden="true" />
-            Generate mock draft
-          </button>
-        }
       />
 
       <section className="mission-panel rounded-lg p-5">
@@ -62,9 +53,20 @@ export default async function AdminAIDraftsPage() {
               key: "status",
               label: "Status",
               render: (draft) => (
-                <Badge variant={draftStatusVariant(draft.status)}>
-                  {draft.status.replaceAll("_", " ")}
-                </Badge>
+                <form action={updateAIDraftStatusAction} className="flex flex-col gap-2">
+                  <input type="hidden" name="id" value={draft.id} />
+                  <Badge variant={draftStatusVariant(draft.status)}>
+                    {draft.status.replaceAll("_", " ")}
+                  </Badge>
+                  <select name="status" defaultValue={draft.status} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                    {["generated", "needs_review", "approved", "rejected", "merged"].map((status) => (
+                      <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+                    ))}
+                  </select>
+                  <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                    Save
+                  </button>
+                </form>
               ),
             },
             {
@@ -140,30 +142,30 @@ export default async function AdminAIDraftsPage() {
             </div>
 
             <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                type="button"
-                disabled
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <CheckCircle2 data-icon aria-hidden="true" />
-                Approve
-              </button>
-              <button
-                type="button"
-                disabled
-                className={buttonVariants({ variant: "danger", size: "sm" })}
-              >
-                <XCircle data-icon aria-hidden="true" />
-                Reject
-              </button>
-              <button
-                type="button"
-                disabled
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <GitMerge data-icon aria-hidden="true" />
-                Merge into content
-              </button>
+              <form action={updateAIDraftStatusAction}>
+                <input type="hidden" name="id" value={draft.id} />
+                <input type="hidden" name="status" value="approved" />
+                <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  <CheckCircle2 data-icon aria-hidden="true" />
+                  Approve
+                </button>
+              </form>
+              <form action={updateAIDraftStatusAction}>
+                <input type="hidden" name="id" value={draft.id} />
+                <input type="hidden" name="status" value="rejected" />
+                <button type="submit" className={buttonVariants({ variant: "danger", size: "sm" })}>
+                  <XCircle data-icon aria-hidden="true" />
+                  Reject
+                </button>
+              </form>
+              <form action={updateAIDraftStatusAction}>
+                <input type="hidden" name="id" value={draft.id} />
+                <input type="hidden" name="status" value="merged" />
+                <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                  <GitMerge data-icon aria-hidden="true" />
+                  Merge into content
+                </button>
+              </form>
             </div>
           </article>
         ))}

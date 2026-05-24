@@ -1,19 +1,19 @@
 import { notFound } from "next/navigation"
 import type { ComponentProps } from "react"
-import { CopyPlus, Pencil, Trash2 } from "lucide-react"
+import { CopyPlus, Trash2 } from "lucide-react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
 import { AdminDataTable } from "@/components/admin/admin-data-table"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
-import { adminLaunches } from "@/data/admin-mock-data"
+import {
+  createTimelineEventAction,
+  deleteTimelineEventAction,
+  updateTimelineEventStatusAction,
+} from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
 import type { AdminTimelineEvent } from "@/types/admin"
-
-export function generateStaticParams() {
-  return adminLaunches.map((launch) => ({ id: launch.id }))
-}
 
 function timelineStatusVariant(
   status: AdminTimelineEvent["status"]
@@ -48,8 +48,8 @@ export default async function AdminTimelineBuilderPage({
         description="Create, sort, review, and preview mission timeline events. Relative timing is planned/estimated unless backed by confirmed source records."
         actions={
           <button
-            type="button"
-            disabled
+            type="submit"
+            form="create-timeline-event-form"
             className={buttonVariants({ variant: "default", size: "sm" })}
           >
             <CopyPlus data-icon aria-hidden="true" />
@@ -57,6 +57,52 @@ export default async function AdminTimelineBuilderPage({
           </button>
         }
       />
+
+      <section className="mission-panel rounded-lg p-5">
+        <p className="mission-eyebrow">Create</p>
+        <h3 className="mt-2 text-xl font-black uppercase tracking-[0.08em]">
+          Add timeline event
+        </h3>
+        <form
+          id="create-timeline-event-form"
+          action={createTimelineEventAction}
+          className="mt-5 grid gap-4 lg:grid-cols-3"
+        >
+          <input type="hidden" name="launchId" value={launch.id} />
+          <select name="type" defaultValue="custom" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {[
+              "countdown",
+              "liftoff",
+              "max_q",
+              "meco",
+              "stage_separation",
+              "ses",
+              "seco",
+              "entry_burn",
+              "landing_burn",
+              "booster_landing",
+              "payload_deploy",
+              "custom",
+            ].map((type) => (
+              <option key={type} value={type}>{type.replaceAll("_", " ")}</option>
+            ))}
+          </select>
+          <input name="relativeTime" placeholder="T+00:00" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <select name="status" defaultValue="planned" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            {["planned", "confirmed", "estimated", "skipped", "failed"].map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+          <input name="titleEn" placeholder="Title EN" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="titleRu" placeholder="Title RU" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="descriptionEn" placeholder="Description EN" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="descriptionRu" placeholder="Description RU" required className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <button type="submit" className={buttonVariants({ variant: "default", size: "sm" })}>
+            <CopyPlus data-icon aria-hidden="true" />
+            Save event
+          </button>
+        </form>
+      </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.4fr_0.9fr]">
         <div className="mission-panel rounded-lg p-5">
@@ -95,13 +141,25 @@ export default async function AdminTimelineBuilderPage({
                 ),
               },
               {
-                key: "status",
-                label: "Status",
-                render: (event) => (
-                  <Badge variant={timelineStatusVariant(event.status)}>
-                    {event.status}
-                  </Badge>
-                ),
+              key: "status",
+              label: "Status",
+              render: (event) => (
+                  <form action={updateTimelineEventStatusAction} className="flex flex-col gap-2">
+                    <input type="hidden" name="id" value={event.id} />
+                    <input type="hidden" name="launchId" value={launch.id} />
+                    <Badge variant={timelineStatusVariant(event.status)}>
+                      {event.status}
+                    </Badge>
+                    <select name="status" defaultValue={event.status} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
+                      {["planned", "confirmed", "estimated", "skipped", "failed"].map((status) => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+                    <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                      Save
+                    </button>
+                  </form>
+              ),
               },
               {
                 key: "approval",
@@ -111,24 +169,16 @@ export default async function AdminTimelineBuilderPage({
               {
                 key: "actions",
                 label: "Actions",
-                render: () => (
+                render: (event) => (
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled
-                      className={buttonVariants({ variant: "outline", size: "sm" })}
-                    >
-                      <Pencil data-icon aria-hidden="true" />
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className={buttonVariants({ variant: "danger", size: "sm" })}
-                    >
-                      <Trash2 data-icon aria-hidden="true" />
-                      Delete
-                    </button>
+                    <form action={deleteTimelineEventAction}>
+                      <input type="hidden" name="id" value={event.id} />
+                      <input type="hidden" name="launchId" value={launch.id} />
+                      <button type="submit" className={buttonVariants({ variant: "danger", size: "sm" })}>
+                        <Trash2 data-icon aria-hidden="true" />
+                        Delete
+                      </button>
+                    </form>
                   </div>
                 ),
               },

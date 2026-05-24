@@ -230,23 +230,53 @@ Rules:
 - AI may summarize conflicts but must not silently choose a winner.
 - Deprecated or unofficial SpaceX APIs are low-trust unless manually verified.
 
+## Backend Foundation Update
+
+Stage 4 adds a real backend foundation under `apps/web`:
+
+- ORM: Prisma 6.
+- Database: PostgreSQL.
+- Auth: Auth.js v5 Credentials/JWT session strategy.
+- Admin persistence: Prisma-backed repository.
+- Admin route protection: server-side route group guard.
+- Write path: server actions and protected route handlers.
+- Audit: every important admin mutation writes `AuditLog`.
+
+PostgreSQL can be hosted on Supabase, local Postgres, Neon, Prisma Postgres, or another standard provider. Supabase Auth is not integrated yet because the repository does not contain a Supabase project configuration.
+
+New backend files:
+
+```text
+apps/web/prisma/schema.prisma
+apps/web/prisma/migrations/202605240001_admin_backend_foundation/migration.sql
+apps/web/prisma/seed.ts
+apps/web/prisma.config.ts
+apps/web/auth.ts
+apps/web/app/api/auth/[...nextauth]/route.ts
+apps/web/lib/db.ts
+apps/web/lib/admin/repository.ts
+apps/web/lib/admin/actions.ts
+apps/web/lib/admin/password.ts
+```
+
 ## Admin Architecture
 
-Admin should be implemented as a protected route group. In v1 it can be a shell with mock data. In v2 it should use Supabase Auth or equivalent for:
+Admin is implemented as a protected route group with persistent database-backed content. Future work can migrate the auth provider to Supabase Auth, OAuth, SSO, WebAuthn, or MFA.
 
-- Admin login.
-- Role-based authorization.
-- RLS-protected content tables.
-- Audit logs.
-- Draft approval workflow.
+Current implementation:
 
-Suggested roles:
+- `/admin/login` is the Auth.js Credentials sign-in page.
+- `/admin/(protected)` wraps the admin shell and requires `admin`, `editor`, or `researcher`.
+- Server actions enforce permissions before writes.
+- AI Moderator is a persisted system actor, not a human login.
+- Approval transitions and important mutations are audited.
 
-- `viewer`: read admin data only.
-- `editor`: create and edit drafts.
-- `verifier`: mark sources as admin verified.
-- `publisher`: approve and publish.
-- `owner`: manage roles and settings.
+Active roles:
+
+- `admin`: approve, publish, archive, override.
+- `editor`: edit content and submit for review.
+- `researcher`: manage source records and research suggestions.
+- `ai_moderator`: create draft records only.
 
 ## AI Draft Workflow
 
@@ -267,8 +297,8 @@ Hard rule: AI cannot publish directly.
 Status flow:
 
 ```text
-draft -> pending_review -> approved -> published
-draft -> pending_review -> rejected
+draft -> in_review -> approved -> published
+draft -> in_review -> rejected
 published -> archived
 ```
 
@@ -281,6 +311,8 @@ Every state transition should record:
 - Next state.
 - Optional reason.
 - Source confidence snapshot.
+
+Publishing without prior `approved` status is blocked unless the actor is `admin`. Admin override publishing writes an explicit `override` audit log before the publish audit record.
 
 ## Source Verification Model
 
@@ -340,13 +372,14 @@ Before implementing Supabase features, verify current Supabase docs and changelo
 
 ## v2 Roadmap
 
+- Replace Credentials auth with SSO, Supabase Auth, WebAuthn, or MFA-backed provider.
+- Add rate limiting and account lockout for admin login.
+- Add richer edit pages and diff review UI.
 - Automated Launch Library sync.
 - YouTube video discovery.
 - Source record ingestion and conflict detection.
-- Supabase-backed CMS tables.
 - AI draft generation for articles/news/FAQ/timeline summaries.
-- Approval workflow UI.
-- Admin audit log.
+- Audit log viewer and export.
 
 ## v3 Roadmap
 

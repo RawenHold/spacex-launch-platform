@@ -19,6 +19,7 @@ const navItems = [
   { href: "/admin/live-control", label: "Live control", icon: Radio },
   { href: "/admin/articles", label: "Articles", icon: TableProperties },
   { href: "/admin/news", label: "News", icon: Newspaper },
+  { href: "/admin/faq", label: "FAQ", icon: TableProperties },
   { href: "/admin/sources", label: "Sources", icon: ShieldCheck },
   { href: "/admin/ai-drafts", label: "AI drafts", icon: Bot },
   { href: "/admin/settings", label: "Settings", icon: Settings },
@@ -63,7 +64,7 @@ export function AdminSidebar({ user }: { user: AdminUser }) {
         </nav>
 
         <div className="mt-auto rounded-lg border border-signal-amber/40 bg-signal-amber/10 p-4 text-xs leading-5 text-signal-amber">
-          MVP guard is for local development only. Wire production auth before deployment.
+          Admin routes are protected by Auth.js. Keep AUTH_SECRET and database credentials server-only.
         </div>
       </div>
     </aside>

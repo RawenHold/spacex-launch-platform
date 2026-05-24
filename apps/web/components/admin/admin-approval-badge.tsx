@@ -11,6 +11,7 @@ const approvalVariant: Record<
   in_review: "warning",
   approved: "info",
   published: "success",
+  rejected: "danger",
   archived: "secondary",
 }
 
