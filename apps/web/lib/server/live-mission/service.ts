@@ -8,6 +8,7 @@ import {
   videoFromDb,
 } from "@/lib/admin/prisma-mappers"
 import { prisma } from "@/lib/db"
+import { logger } from "@/lib/server/logger"
 import { parseRelativeMissionTime } from "@/lib/mission-time/mission-clock"
 import { computeAnimationProgress } from "@/lib/mission-time/animation-progress"
 import type {
@@ -163,6 +164,13 @@ async function writeAudit(
       reason: input.reason,
       metadata: input.metadata ? inputJson(input.metadata) : undefined,
     },
+  })
+  logger.info("live_mission_admin_action", {
+    actorId: input.actorId,
+    action: input.action ?? "UPDATE",
+    entityType: input.entityType ?? "LAUNCH",
+    entityId: input.entityId,
+    reason: input.reason,
   })
 }
 

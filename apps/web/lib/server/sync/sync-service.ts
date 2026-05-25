@@ -8,6 +8,7 @@ import type {
 
 import { conflictFromDb, launchFromDb } from "@/lib/admin/prisma-mappers"
 import { prisma } from "@/lib/db"
+import { logger } from "@/lib/server/logger"
 import { detectLaunchConflicts } from "@/lib/server/sync/conflicts"
 import { fetchLaunchLibraryByMode } from "@/lib/server/sync/launch-library"
 import {
@@ -455,7 +456,9 @@ export async function runLaunchLibrarySync({
         summary.errorCount += result.errors
       } catch (error) {
         summary.errorCount += 1
-        summary.errorMessages.push(error instanceof Error ? error.message : "Unknown import error")
+        const message = error instanceof Error ? error.message : "Unknown import error"
+        summary.errorMessages.push(message)
+        logger.warn("launch_library_candidate_import_failed", { message })
       }
     }
 
@@ -495,6 +498,7 @@ export async function runLaunchLibrarySync({
     const message = error instanceof Error ? error.message : "Unknown Launch Library sync error"
     summary.errorCount += 1
     summary.errorMessages.push(message)
+    logger.error("launch_library_sync_failed", { message, syncRunId: syncRun.id })
 
     await prisma.externalSyncRun.update({
       where: { id: syncRun.id },

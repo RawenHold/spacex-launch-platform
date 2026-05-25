@@ -421,6 +421,9 @@ export interface AdminSettings {
   youtubeDataApiConfigured: boolean
   openAiConfigured: boolean
   aiDraftsEnabled: boolean
+  liveMissionModeEnabled: boolean
+  rateLimitAdapter: "memory" | "redis" | "database"
+  centralizedRateLimitConfigured: boolean
   editorCanPublish: boolean
   requireApprovalForAiDrafts: boolean
 }

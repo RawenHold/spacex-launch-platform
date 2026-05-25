@@ -95,6 +95,18 @@ export default async function AdminSettingsPage() {
                 {settings.aiDraftsEnabled ? "enabled" : "disabled"}
               </Badge>
             </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-card/60 p-4">
+              <span className="text-sm text-muted-foreground">Live Mission Mode</span>
+              <Badge variant={settings.liveMissionModeEnabled ? "success" : "outline"}>
+                {settings.liveMissionModeEnabled ? "enabled" : "disabled"}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-card/60 p-4">
+              <span className="text-sm text-muted-foreground">Rate limiting</span>
+              <Badge variant={settings.centralizedRateLimitConfigured ? "success" : "warning"}>
+                {settings.rateLimitAdapter}
+              </Badge>
+            </div>
           </div>
         </div>
 

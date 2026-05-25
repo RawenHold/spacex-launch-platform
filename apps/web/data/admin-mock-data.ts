@@ -385,6 +385,9 @@ export const adminSettings: AdminSettings = {
   youtubeDataApiConfigured: Boolean(process.env.YOUTUBE_DATA_API_KEY),
   openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
   aiDraftsEnabled: process.env.ENABLE_AI_DRAFTS === "true",
+  liveMissionModeEnabled: process.env.ENABLE_LIVE_MISSION_MODE !== "false",
+  rateLimitAdapter: "memory",
+  centralizedRateLimitConfigured: false,
   editorCanPublish: false,
   requireApprovalForAiDrafts: true,
 }

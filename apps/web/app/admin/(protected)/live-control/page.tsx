@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin/actions"
 import { requireAdminUser } from "@/lib/admin/auth"
 import { getLiveMissionAdminData } from "@/lib/server/live-mission/service"
+import { getSafeServerEnvStatus } from "@/lib/server/env"
 import { formatMissionTime } from "@/lib/mission-time/mission-clock"
 import { computeMissionClock } from "@/lib/mission-time/mission-clock"
 import { parseRelativeMissionTime } from "@/lib/mission-time/mission-clock"
@@ -75,11 +76,12 @@ export default async function AdminLiveControlPage({
   searchParams?: Promise<{ launchId?: string }>
 }) {
   const user = await requireAdminUser()
+  const liveMissionEnabled = getSafeServerEnvStatus().liveMissionModeEnabled
   const query = await searchParams
   const data = await getLiveMissionAdminData(query?.launchId)
   const launch = data.selectedLaunch
   const state = data.state
-  const canControl = user.role === "admin"
+  const canControl = user.role === "admin" && liveMissionEnabled
   const clock = launch
     ? computeMissionClock({
         countdownTargetUtc: state?.countdownTargetUtc ?? launch.launchDateTimeUtc,
@@ -106,6 +108,13 @@ export default async function AdminLiveControlPage({
           </p>
         </div>
       </section>
+
+      {!liveMissionEnabled ? (
+        <section className="rounded-lg border border-signal-red/50 bg-signal-red/10 p-5 text-signal-red">
+          Live Mission Mode is disabled by environment configuration. Set
+          ENABLE_LIVE_MISSION_MODE=true before using manual controls.
+        </section>
+      ) : null}
 
       <section className="mission-panel rounded-lg p-5">
         <form className="flex flex-wrap items-end gap-3">

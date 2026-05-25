@@ -6,16 +6,23 @@ import { rolePermissions } from "@/lib/admin/permissions"
 import { fromPrismaRole } from "@/lib/admin/prisma-mappers"
 import { verifyPassword } from "@/lib/admin/password"
 import { prisma } from "@/lib/db"
+import { getServerEnv } from "@/lib/server/env"
+import { logger } from "@/lib/server/logger"
 
 const signInSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(256),
 })
 
+const env = getServerEnv()
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
+  secret: env.AUTH_SECRET,
+  trustHost: env.AUTH_TRUST_HOST ?? true,
+  useSecureCookies: process.env.NODE_ENV === "production",
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60,
   },
   pages: {
     signIn: "/admin/login",
@@ -30,6 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = signInSchema.safeParse(credentials)
 
         if (!parsed.success) {
+          logger.warn("admin_sign_in_failed", { reason: "invalid_payload" })
           return null
         }
 
@@ -38,12 +46,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         })
 
         if (!user || !user.isHuman || user.status !== "ACTIVE" || !user.passwordHash) {
+          logger.warn("admin_sign_in_failed", { reason: "invalid_credentials_or_inactive" })
           return null
         }
 
         const validPassword = verifyPassword(parsed.data.password, user.passwordHash)
 
         if (!validPassword) {
+          logger.warn("admin_sign_in_failed", { reason: "invalid_credentials" })
           return null
         }
 
@@ -64,6 +74,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             },
           })
         })
+        logger.info("admin_sign_in_succeeded", { actorId: user.id, role })
 
         return {
           id: user.id,

@@ -2,8 +2,10 @@ import type { Metadata } from "next"
 
 import "./globals.css"
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://spacex.example"
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://spacex.example"),
+  metadataBase: new URL(siteUrl),
   title: {
     default: "SpaceX Launch Platform",
     template: "%s | SpaceX Launch Platform",
@@ -12,6 +14,9 @@ export const metadata: Metadata = {
     "A bilingual mock MVP for a SpaceX-focused launch platform with mission timelines, countdowns, livestream embeds, and source transparency.",
   icons: {
     icon: "/favicon.ico",
+  },
+  alternates: {
+    canonical: "/",
   },
 }
 

@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client"
 import { localizedFromJson, sourceFromDb, toPrismaEntityType } from "@/lib/admin/prisma-mappers"
 import { getAdminRepository, type CreateAIDraftInput } from "@/lib/admin/repository"
 import { prisma } from "@/lib/db"
+import { logger } from "@/lib/server/logger"
 import { createStructuredOpenAIResponse, openAIConfigured, openAIModel } from "@/lib/server/ai/openai-client"
 import { buildAIDraftUserPrompt } from "@/lib/server/ai/prompts"
 import { aiJsonSchemas, parseAIDraftOutput } from "@/lib/server/ai/schemas"
@@ -486,6 +487,14 @@ export async function generateAIDraft(request: GenerateAIDraftRequest) {
     return repository.createAIDraft(draftInputFromOutput(request, context, output, runtime))
   } catch (error) {
     const friendly = friendlyAIError(error)
+    logger.error("ai_generate_failed", {
+      task: request.task,
+      relatedEntityType: request.relatedEntityType,
+      relatedEntityId: request.relatedEntityId,
+      provider: runtime.provider,
+      model: runtime.model,
+      message: friendly,
+    })
 
     await auditAI({
       actorId: request.actorId,

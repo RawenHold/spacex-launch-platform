@@ -20,6 +20,7 @@ import { formatUtcDateTime } from "@/lib/format"
 import { localize } from "@/lib/i18n/config"
 import { getDictionary } from "@/lib/i18n/get-dictionary"
 import { getPublishedLaunchBySlug } from "@/lib/public/repository"
+import { getSafeServerEnvStatus } from "@/lib/server/env"
 import { isRiskyConfidence } from "@/lib/source-confidence"
 import type { Locale, TimelineEventType } from "@/types/space"
 
@@ -117,6 +118,7 @@ export default async function LaunchDetailPage({
   const activeIndex = getActiveTimelineIndex(launch.netUtc, launch.timeline.length)
   const video = launch.videos[0]
   const initialMissionTimeSeconds = launch.liveMission?.currentMissionTimeSeconds ?? 0
+  const liveMissionEnabled = getSafeServerEnvStatus().liveMissionModeEnabled
 
   return (
     <>
@@ -174,10 +176,12 @@ export default async function LaunchDetailPage({
         </div>
       </section>
 
-      <section className="mission-container grid gap-6 py-14 xl:grid-cols-[1.1fr_0.9fr]">
-        <LiveMissionPanel launch={launch} locale={locale} />
-        <YouTubeEmbed video={video} labels={dictionary.youtube} />
-      </section>
+      {liveMissionEnabled ? (
+        <section className="mission-container grid gap-6 py-14 xl:grid-cols-[1.1fr_0.9fr]">
+          <LiveMissionPanel launch={launch} locale={locale} />
+          <YouTubeEmbed video={video} labels={dictionary.youtube} />
+        </section>
+      ) : null}
 
       <section className="mission-container grid gap-6 py-14 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="flex flex-col gap-6">
@@ -223,6 +227,7 @@ export default async function LaunchDetailPage({
         </div>
 
         <div className="flex flex-col gap-6">
+          {!liveMissionEnabled ? <YouTubeEmbed video={video} labels={dictionary.youtube} /> : null}
           <Card>
             <CardHeader>
               <CardTitle>{dictionary.home.timelinePreview}</CardTitle>

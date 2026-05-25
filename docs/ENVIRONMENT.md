@@ -44,7 +44,11 @@ npx auth secret
 
 ```text
 DIRECT_URL=
+NEXT_PUBLIC_SITE_URL=
 ENABLE_MOCK_FALLBACK=true
+RATE_LIMIT_ADAPTER=memory
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 LAUNCH_LIBRARY_BASE_URL=https://ll.thespacedevs.com/2.3.0
 LAUNCH_LIBRARY_API_KEY=
 ENABLE_EXTERNAL_SYNC=false
@@ -54,6 +58,7 @@ ENABLE_YOUTUBE_SYNC=false
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4.1-mini
 ENABLE_AI_DRAFTS=false
+ENABLE_LIVE_MISSION_MODE=true
 ```
 
 Some hosted Postgres providers use a pooled connection for runtime and a direct connection for migrations. The current Prisma schema uses `DATABASE_URL`; add `directUrl` later if the selected host requires it.
@@ -61,6 +66,8 @@ Some hosted Postgres providers use a pooled connection for runtime and a direct 
 `ENABLE_MOCK_FALLBACK=false` disables local development fallback to static mock data. Production never uses fallback mock data.
 
 `ENABLE_EXTERNAL_SYNC=true` allows manual Launch Library sync from `/admin/sync`. Keep it false in environments where imports should be disabled.
+
+`RATE_LIMIT_ADAPTER=memory` is local-only. For multi-instance production, configure a centralized Redis/Upstash or database-backed adapter before raising traffic.
 
 `LAUNCH_LIBRARY_API_KEY` is optional; Launch Library can be used without a key for basic access, but configured keys must remain server-only.
 
@@ -75,6 +82,10 @@ Some hosted Postgres providers use a pooled connection for runtime and a direct 
 `OPENAI_MODEL` defaults to `gpt-4.1-mini`.
 
 `ENABLE_AI_DRAFTS=true` enables admin-triggered draft generation. If it is true and no OpenAI key is configured, the app uses deterministic mock drafts. If it is false, real API calls are disabled and admin AI buttons render disabled.
+
+`ENABLE_LIVE_MISSION_MODE=false` disables public live mission panels and admin live-control mutations while keeping launch pages and approved YouTube embeds available.
+
+`NEXT_PUBLIC_SITE_URL` is browser-visible and should contain the canonical production origin used by metadata, robots, and sitemap generation.
 
 ## Future Placeholders
 

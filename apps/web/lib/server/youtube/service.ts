@@ -7,6 +7,7 @@ import type {
 
 import { videoFromDb } from "@/lib/admin/prisma-mappers"
 import { prisma } from "@/lib/db"
+import { logger } from "@/lib/server/logger"
 import { detectVideoConflicts } from "@/lib/server/youtube/conflicts"
 import { discoverYouTubeCandidatesForLaunch } from "@/lib/server/youtube/discovery"
 import { normalizeYouTubeUrlCandidate } from "@/lib/server/youtube/normalizers"
@@ -289,7 +290,9 @@ export async function discoverAndStoreYouTubeVideos({
       summary.conflictCount += result.conflicts
     } catch (error) {
       summary.errorCount += 1
-      summary.messages.push(error instanceof Error ? error.message : "Unknown YouTube candidate error")
+      const message = error instanceof Error ? error.message : "Unknown YouTube candidate error"
+      summary.messages.push(message)
+      logger.warn("youtube_candidate_persist_failed", { launchId, message })
     }
   }
 
@@ -309,6 +312,14 @@ export async function discoverAndStoreYouTubeVideos({
         errors: summary.errorCount,
       }),
     },
+  })
+  logger.info("youtube_discovery_completed", {
+    launchId,
+    discovered: summary.discoveredCount,
+    created: summary.createdCount,
+    updated: summary.updatedCount,
+    conflicts: summary.conflictCount,
+    errors: summary.errorCount,
   })
 
   return summary

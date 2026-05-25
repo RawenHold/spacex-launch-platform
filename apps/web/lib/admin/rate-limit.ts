@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/db"
 import { checkRateLimit, RateLimitError } from "@/lib/rate-limit"
+import { logger } from "@/lib/server/logger"
 
 function normalizeKey(value: string) {
   return value.trim().toLowerCase() || "unknown"
@@ -45,13 +46,18 @@ async function writeRateLimitAudit(input: {
 export async function enforceLoginRateLimit(email: string) {
   const { ip } = await requestIdentity()
   const key = `admin-login:${normalizeKey(ip)}:${normalizeKey(email)}`
-  const result = checkRateLimit({ key, limit: 5, windowMs: 15 * 60 * 1000 })
+  const result = await checkRateLimit({ key, limit: 5, windowMs: 15 * 60 * 1000 })
 
   if (!result.allowed) {
     await writeRateLimitAudit({
       entityId: normalizeKey(email),
       reason: "Admin login rate limit exceeded.",
       metadata: { scope: "admin_login", email: normalizeKey(email), resetAt: result.resetAt.toISOString() },
+    })
+    logger.warn("admin_login_rate_limited", {
+      scope: "admin_login",
+      adapter: result.adapter,
+      resetAt: result.resetAt.toISOString(),
     })
     throw new RateLimitError(
       "Too many login attempts. Wait a few minutes and try again.",
@@ -62,7 +68,7 @@ export async function enforceLoginRateLimit(email: string) {
 
 export async function enforceAdminWriteRateLimit(userId: string) {
   const key = `admin-write:${normalizeKey(userId)}`
-  const result = checkRateLimit({ key, limit: 80, windowMs: 10 * 60 * 1000 })
+  const result = await checkRateLimit({ key, limit: 80, windowMs: 10 * 60 * 1000 })
 
   if (!result.allowed) {
     await writeRateLimitAudit({
@@ -70,6 +76,11 @@ export async function enforceAdminWriteRateLimit(userId: string) {
       entityId: userId,
       reason: "Admin write action rate limit exceeded.",
       metadata: { scope: "admin_write", resetAt: result.resetAt.toISOString() },
+    })
+    logger.warn("admin_write_rate_limited", {
+      actorId: userId,
+      adapter: result.adapter,
+      resetAt: result.resetAt.toISOString(),
     })
     throw new RateLimitError(
       "Too many admin changes in a short period. Please pause briefly and try again.",

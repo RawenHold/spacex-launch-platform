@@ -76,14 +76,30 @@ This is acceptable for a production-oriented foundation, but before public deplo
 
 ## Rate Limiting
 
-The MVP now includes a basic in-memory rate limiting foundation:
+The app now uses an adapter-shaped rate limiting foundation:
 
 - `/admin/login` is limited by IP and email.
 - Admin server write actions are limited by user id.
 - Admin API write routes call the same write limiter.
 - Rate-limit events are logged to `AuditLog` when possible.
+- `RATE_LIMIT_ADAPTER=memory` keeps the local development implementation.
+- `RATE_LIMIT_ADAPTER=redis` or `database` is reserved for centralized production storage.
 
 This is useful for local MVP stabilization, but it is not sufficient for multi-instance production. Production should move rate limiting to Redis, Upstash, Vercel KV, Supabase/pg-backed counters, or an edge/WAF layer with centralized storage.
+
+## Security Headers
+
+Global security headers are configured in `apps/web/next.config.mjs`:
+
+- Content-Security-Policy
+- X-Frame-Options
+- X-Content-Type-Options
+- Referrer-Policy
+- Permissions-Policy
+- Strict-Transport-Security in production
+- X-Robots-Tag noindex/nofollow for `/admin`
+
+The CSP intentionally allows YouTube and YouTube no-cookie frames for approved livestream/replay embeds. It also allows framework-required inline styles/scripts; tightening this further requires a nonce/hash based CSP pass.
 
 ## Approval And Publishing
 
@@ -228,11 +244,31 @@ apps/web/.env.example
 
 Settings UI shows only configured/not configured indicators and never renders secret values.
 
+## Logging And Monitoring
+
+The server logger lives in:
+
+```text
+apps/web/lib/server/logger.ts
+```
+
+It writes structured JSON logs with masked sensitive fields. Current hooks cover auth failures, rate limits, Launch Library sync failures, YouTube discovery persistence failures, AI generation failures, and Live Mission control actions.
+
+Production should connect these logs to a provider such as Sentry, Axiom, Logtail, Datadog, or a Vercel log drain with alerts for:
+
+- repeated admin login failures
+- rate-limit spikes
+- publish or override actions
+- sync conflicts/errors
+- AI generation failures
+- live-control overrides
+
 ## Risks Before Deployment
 
 Before production deployment:
 
 - Configure `AUTH_SECRET`.
+- Configure `NEXT_PUBLIC_SITE_URL`.
 - Use HTTPS only.
 - Replace in-memory rate limiting with centralized production rate limiting.
 - Add CSRF review for any non-Auth.js form endpoints.

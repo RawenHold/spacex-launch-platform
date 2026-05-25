@@ -14,6 +14,12 @@ This keeps the existing repository abstraction intact and allows the same schema
 
 Supabase Auth is not integrated in this stage because there is no Supabase project configuration in the repository. Supabase can still be used as the PostgreSQL host by setting `DATABASE_URL`.
 
+## Production Connection Safety
+
+Use `DATABASE_URL` for runtime Prisma Client connections. If a provider uses a pooled runtime URL, keep migrations on a direct database connection and document that value as `DIRECT_URL`. The current Prisma datasource reads `DATABASE_URL`; add Prisma `directUrl = env("DIRECT_URL")` only when the selected host requires it.
+
+Serverless deployments should use a provider-supported pooler or Prisma Accelerate/Data Proxy equivalent if connection counts become a risk. Prisma Client is reused through `apps/web/lib/db.ts` in development to avoid hot-reload connection storms.
+
 ## Files
 
 - `apps/web/prisma/schema.prisma` - database schema.
@@ -205,12 +211,21 @@ cd apps/web
 npm run db:deploy
 ```
 
+Production deploys should run `prisma migrate deploy`, not `prisma migrate dev`.
+
 For local iterative development:
 
 ```bash
 cd apps/web
 npm run db:migrate -- --name your_change_name
 ```
+
+Rollback strategy:
+
+- Keep a database backup before every production migration.
+- Prefer forward-fix migrations for small changes.
+- For destructive migrations, create a tested restore plan and rehearse it on staging.
+- Never run ad hoc schema changes from the production dashboard without committing a matching migration.
 
 ## Seed
 
@@ -241,3 +256,13 @@ The seed creates:
 - one sample AI draft
 
 No real password is hardcoded. If `ADMIN_PASSWORD` is omitted, the seeded admin exists but cannot sign in through Credentials auth until a password hash is set.
+
+## Backup And Restore Expectations
+
+Before public launch, configure:
+
+- automated daily database backups
+- point-in-time recovery if the provider supports it
+- manual backup before migrations
+- restore rehearsal on a staging database
+- export path for audit logs and approval history

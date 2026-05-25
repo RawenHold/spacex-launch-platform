@@ -7,6 +7,7 @@ import { requireAdminPermission, requireAdminRole } from "@/lib/admin/auth"
 import { enforceAdminWriteRateLimit } from "@/lib/admin/rate-limit"
 import { getAdminRepository } from "@/lib/admin/repository"
 import { generateAIDraft } from "@/lib/server/ai/service"
+import { getSafeServerEnvStatus } from "@/lib/server/env"
 import { runLaunchLibrarySync } from "@/lib/server/sync/sync-service"
 import {
   addManualYouTubeVideoCandidate,
@@ -889,6 +890,10 @@ export async function updateVideoStatusAction(formData: FormData) {
 }
 
 async function requireLiveControlRole() {
+  if (!getSafeServerEnvStatus().liveMissionModeEnabled) {
+    throw new Error("Live Mission Mode is disabled by environment configuration.")
+  }
+
   const user = await requireAdminRole(["admin"])
   await enforceAdminWriteRateLimit(user.id)
   return user

@@ -1,6 +1,7 @@
 import type { AuditAction as DbAuditAction, Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/db"
+import { getSafeServerEnvStatus } from "@/lib/server/env"
 import { maskSensitiveJson } from "@/lib/admin/audit-safety"
 import {
   adminUserFromDb,
@@ -890,15 +891,20 @@ export const prismaAdminRepository: AdminRepository = {
   },
 
   async getSettings() {
+    const env = getSafeServerEnvStatus()
+
     return {
       siteName: "SpaceX",
       enabledLocales: ["en", "ru"],
       defaultLocale: "en",
-      dataSyncEnabled: false,
-      launchLibraryApiConfigured: false,
-      youtubeDataApiConfigured: Boolean(process.env.YOUTUBE_API_KEY),
-      openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
-      aiDraftsEnabled: process.env.ENABLE_AI_DRAFTS === "true",
+      dataSyncEnabled: env.externalSyncEnabled,
+      launchLibraryApiConfigured: env.launchLibraryApiConfigured,
+      youtubeDataApiConfigured: env.youtubeDataApiConfigured,
+      openAiConfigured: env.openAiConfigured,
+      aiDraftsEnabled: env.aiDraftsEnabled,
+      liveMissionModeEnabled: env.liveMissionModeEnabled,
+      rateLimitAdapter: env.rateLimitAdapter,
+      centralizedRateLimitConfigured: env.centralizedRateLimitConfigured,
       editorCanPublish: false,
       requireApprovalForAiDrafts: true,
     } satisfies AdminSettings

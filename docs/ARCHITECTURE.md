@@ -120,6 +120,17 @@ The system must never describe this mode as official SpaceX telemetry until an o
 
 See `docs/LIVE_MISSION_MODE.md` for implementation and operator details.
 
+## Production Hardening Architecture
+
+Stage 10 adds production readiness foundations:
+
+- `apps/web/lib/server/env.ts` validates server-only environment variables and returns safe boolean configuration status for admin settings.
+- `apps/web/lib/server/logger.ts` emits masked structured logs without secrets.
+- `apps/web/lib/rate-limit.ts` now uses an adapter shape with memory development behavior and Redis/database placeholders for centralized production rate limiting.
+- `apps/web/next.config.mjs` applies security headers and admin noindex headers.
+- `apps/web/app/robots.ts` and `apps/web/app/sitemap.ts` provide production discovery basics while excluding admin routes.
+- `docs/PRODUCTION_READINESS.md`, `docs/DEPLOYMENT.md`, and `docs/ADMIN_OPERATIONS.md` define launch, rollback, and operator procedures.
+
 ## MVP Scope
 
 MVP v1 includes:
