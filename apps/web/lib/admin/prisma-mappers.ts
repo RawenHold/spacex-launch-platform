@@ -345,18 +345,28 @@ export function aiDraftFromDb(draft: DbAIDraft): AIDraft {
     type: fromUpperSnake(draft.type) as AIDraft["type"],
     status: fromUpperSnake(draft.status) as AIDraft["status"],
     createdBy: "ai_moderator",
+    reviewedById: draft.reviewedById ?? undefined,
     relatedEntityType: entityTypeFromDb(draft.relatedEntityType),
     relatedEntityId: draft.relatedEntityId,
     title: localizedFromJson(draft.title),
     content: localizedFromJson(draft.content),
+    contentJson: draft.contentJson ?? undefined,
+    contentRu: draft.contentRu ?? undefined,
+    contentEn: draft.contentEn ?? undefined,
     citations: Array.isArray(draft.citations)
       ? (draft.citations as unknown as AdminSourceRecord[])
       : [],
+    sourcesJson: draft.sourcesJson ?? undefined,
     confidenceNotes: localizedFromJson(draft.confidenceNotes),
     riskNotes: localizedFromJson(draft.riskNotes),
+    missingData: draft.missingData ?? undefined,
     sourceComparison: Array.isArray(draft.sourceComparison)
       ? (draft.sourceComparison as unknown as SourceConflict[])
       : [],
+    provider: draft.provider,
+    model: draft.model ?? undefined,
+    promptVersion: draft.promptVersion,
+    reviewedAt: draft.reviewedAt?.toISOString(),
     createdAt: draft.createdAt.toISOString(),
     updatedAt: draft.updatedAt.toISOString(),
     approval: {

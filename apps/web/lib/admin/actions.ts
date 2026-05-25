@@ -6,6 +6,7 @@ import { z } from "zod"
 import { requireAdminPermission, requireAdminRole } from "@/lib/admin/auth"
 import { enforceAdminWriteRateLimit } from "@/lib/admin/rate-limit"
 import { getAdminRepository } from "@/lib/admin/repository"
+import { generateAIDraft } from "@/lib/server/ai/service"
 import { runLaunchLibrarySync } from "@/lib/server/sync/sync-service"
 import {
   addManualYouTubeVideoCandidate,
@@ -43,6 +44,27 @@ const publishableSchema = z.enum([
   "rejected",
   "archived",
 ])
+
+const aiDraftStatusSchema = z.enum([
+  "generated",
+  "needs_review",
+  "approved",
+  "rejected",
+  "merged",
+  "archived",
+])
+
+const aiDraftTypeSchema = z.enum([
+  "launch_summary",
+  "article",
+  "news_summary",
+  "faq",
+  "seo",
+  "timeline_suggestion",
+  "source_comparison",
+])
+
+const aiRelatedEntitySchema = z.enum(["launch", "article", "news", "source", "faq"])
 
 const slugSchema = z
   .string()
@@ -604,11 +626,9 @@ export async function updateSourceAction(formData: FormData) {
 }
 
 export async function updateAIDraftStatusAction(formData: FormData) {
-  const status = z
-    .enum(["generated", "needs_review", "approved", "rejected", "merged"])
-    .parse(formData.get("status"))
+  const status = aiDraftStatusSchema.parse(formData.get("status"))
   const requiredPermission =
-    status === "approved" || status === "rejected" || status === "merged"
+    status === "approved" || status === "rejected" || status === "merged" || status === "archived"
       ? "approve"
       : "generate_ai_drafts"
   const user = await requireWritePermission([requiredPermission])
@@ -616,7 +636,57 @@ export async function updateAIDraftStatusAction(formData: FormData) {
   const id = z.string().min(1).parse(formData.get("id"))
 
   await repository.updateAIDraftStatus(id, status as AIDraft["status"], user.id)
-  revalidateAdmin(["/admin", "/admin/ai-drafts"])
+  revalidateAdmin(["/admin", "/admin/ai-drafts", `/admin/ai-drafts/${id}`])
+}
+
+export async function mergeAIDraftAction(formData: FormData) {
+  const user = await requireWritePermission(["approve"])
+  const repository = getAdminRepository()
+  const id = z.string().min(1).parse(formData.get("id"))
+  await repository.mergeAIDraft(id, user.id)
+  revalidateAdmin([
+    "/admin",
+    "/admin/ai-drafts",
+    `/admin/ai-drafts/${id}`,
+    "/admin/launches",
+    "/admin/articles",
+    "/admin/news",
+    "/admin/faq",
+  ])
+}
+
+export async function generateAIDraftAction(formData: FormData) {
+  const user = await requireWritePermission(["generate_ai_drafts"])
+  const parsed = z
+    .object({
+      task: aiDraftTypeSchema,
+      relatedEntityType: aiRelatedEntitySchema,
+      relatedEntityId: z.string().min(1),
+      instruction: z.string().min(3),
+      returnTo: z.string().optional(),
+    })
+    .parse({
+      task: formData.get("task"),
+      relatedEntityType: formData.get("relatedEntityType"),
+      relatedEntityId: formData.get("relatedEntityId"),
+      instruction: formData.get("instruction"),
+      returnTo: String(formData.get("returnTo") ?? "") || undefined,
+    })
+
+  const draft = await generateAIDraft({
+    task: parsed.task,
+    instruction: parsed.instruction,
+    relatedEntityType: parsed.relatedEntityType,
+    relatedEntityId: parsed.relatedEntityId,
+    actorId: user.id,
+  })
+
+  revalidateAdmin([
+    "/admin",
+    "/admin/ai-drafts",
+    "id" in draft ? `/admin/ai-drafts/${draft.id}` : "/admin/ai-drafts",
+    parsed.returnTo ?? "/admin/ai-drafts",
+  ])
 }
 
 export async function createAdminUserAction(formData: FormData) {

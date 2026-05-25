@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client"
+import type { AuditAction as DbAuditAction, Prisma } from "@prisma/client"
 
 import { prisma } from "@/lib/db"
 import { maskSensitiveJson } from "@/lib/admin/audit-safety"
@@ -62,13 +62,23 @@ export interface CreateAdminUserInput {
 
 export interface CreateAIDraftInput {
   type: AIDraftType
+  status?: AIDraft["status"]
   relatedEntityType: AIDraft["relatedEntityType"]
   relatedEntityId: string
   title: LocalizedText
   content: LocalizedText
+  contentJson?: unknown
+  contentRu?: string
+  contentEn?: string
   citations: AdminSourceRecord[]
+  sourcesJson?: unknown
   confidenceNotes: LocalizedText
   riskNotes: LocalizedText
+  missingData?: unknown
+  sourceComparison?: unknown
+  provider?: string
+  model?: string
+  promptVersion?: string
 }
 
 export interface CreateLaunchInput {
@@ -218,7 +228,14 @@ export interface AdminRepository {
   getSourceById(id: string): Promise<AdminSourceRecord | undefined>
   updateSource(input: UpdateSourceInput, actorId: string): Promise<AdminSourceRecord>
   listSourceConflicts(): Promise<SourceConflict[]>
-  listAIDrafts(): Promise<AIDraft[]>
+  listAIDrafts(filters?: {
+    type?: AIDraftType
+    status?: AIDraft["status"]
+    relatedEntityId?: string
+    from?: string
+    confidence?: string
+  }): Promise<AIDraft[]>
+  getAIDraftById(id: string): Promise<AIDraft | undefined>
   getSettings(): Promise<AdminSettings>
   createLaunch(input: CreateLaunchInput, actorId: string): Promise<AdminLaunchRecord>
   updateLaunchStatus(
@@ -266,6 +283,7 @@ export interface AdminRepository {
     status: AIDraft["status"],
     actorId: string
   ): Promise<AIDraft>
+  mergeAIDraft(id: string, actorId: string): Promise<AIDraft>
   transitionApproval(
     entityId: string,
     status: PublishableStatus,
@@ -323,18 +341,7 @@ async function writeAudit(
   tx: Prisma.TransactionClient,
   input: {
     actorId?: string
-    action:
-      | "CREATE"
-      | "UPDATE"
-      | "DELETE"
-      | "SUBMIT_FOR_REVIEW"
-      | "APPROVE"
-      | "REJECT"
-      | "PUBLISH"
-      | "ARCHIVE"
-      | "OVERRIDE"
-      | "SIGN_IN"
-      | "RATE_LIMIT"
+    action: DbAuditAction
     entityType: ReturnType<typeof entityTypeToPrisma>
     entityId: string
     before?: Prisma.InputJsonValue
@@ -854,9 +861,32 @@ export const prismaAdminRepository: AdminRepository = {
     return conflicts.map(conflictFromDb)
   },
 
-  async listAIDrafts() {
-    const drafts = await prisma.aIDraft.findMany({ orderBy: { updatedAt: "desc" } })
-    return drafts.map(aiDraftFromDb)
+  async listAIDrafts(filters) {
+    const where: Prisma.AIDraftWhereInput = {}
+
+    if (filters?.type) where.type = prismaEnum.aiDraftType(filters.type)
+    if (filters?.status) where.status = prismaEnum.aiDraftStatus(filters.status)
+    if (filters?.relatedEntityId) where.relatedEntityId = filters.relatedEntityId
+    if (filters?.from) where.createdAt = { gte: new Date(filters.from) }
+
+    const drafts = await prisma.aIDraft.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      take: 200,
+    })
+    const mapped = drafts.map(aiDraftFromDb)
+
+    if (!filters?.confidence) return mapped
+
+    const needle = filters.confidence.toLowerCase()
+    return mapped.filter((draft) =>
+      `${draft.confidenceNotes.en} ${draft.confidenceNotes.ru}`.toLowerCase().includes(needle)
+    )
+  },
+
+  async getAIDraftById(id) {
+    const draft = await prisma.aIDraft.findUnique({ where: { id } })
+    return draft ? aiDraftFromDb(draft) : undefined
   },
 
   async getSettings() {
@@ -868,6 +898,7 @@ export const prismaAdminRepository: AdminRepository = {
       launchLibraryApiConfigured: false,
       youtubeDataApiConfigured: Boolean(process.env.YOUTUBE_API_KEY),
       openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
+      aiDraftsEnabled: process.env.ENABLE_AI_DRAFTS === "true",
       editorCanPublish: false,
       requireApprovalForAiDrafts: true,
     } satisfies AdminSettings
@@ -1167,20 +1198,29 @@ export const prismaAdminRepository: AdminRepository = {
       const draft = await tx.aIDraft.create({
         data: {
           type: prismaEnum.aiDraftType(input.type),
+          status: input.status ? prismaEnum.aiDraftStatus(input.status) : undefined,
           relatedEntityType: toPrismaEntityType(input.relatedEntityType),
           relatedEntityId: input.relatedEntityId,
           createdById: aiModerator.id,
           title: localizedToJson(input.title),
           content: localizedToJson(input.content),
+          contentJson: input.contentJson === undefined ? undefined : auditJson(input.contentJson),
+          contentRu: input.contentRu,
+          contentEn: input.contentEn,
           citations: input.citations as unknown as Prisma.InputJsonValue,
+          sourcesJson: input.sourcesJson === undefined ? undefined : auditJson(input.sourcesJson),
           confidenceNotes: localizedToJson(input.confidenceNotes),
           riskNotes: localizedToJson(input.riskNotes),
-          sourceComparison: [],
+          missingData: input.missingData === undefined ? undefined : auditJson(input.missingData),
+          sourceComparison: input.sourceComparison === undefined ? [] : auditJson(input.sourceComparison),
+          provider: input.provider ?? "mock",
+          model: input.model,
+          promptVersion: input.promptVersion ?? "ai-drafts-v1",
         },
       })
       await writeAudit(tx, {
         actorId: aiModerator.id,
-        action: "CREATE",
+        action: input.status === "rejected" ? "AI_GENERATE_FAILED" : "AI_GENERATE_SUCCEEDED",
         entityType: entityTypeToPrisma("ai_draft"),
         entityId: draft.id,
         after: auditJson(draft),
@@ -1195,20 +1235,193 @@ export const prismaAdminRepository: AdminRepository = {
       const before = await tx.aIDraft.findUniqueOrThrow({ where: { id } })
       const draft = await tx.aIDraft.update({
         where: { id },
-        data: { status: prismaEnum.aiDraftStatus(status) },
+        data: {
+          status: prismaEnum.aiDraftStatus(status),
+          reviewedById: ["approved", "rejected", "archived"].includes(status) ? actorId : before.reviewedById,
+          reviewedAt: ["approved", "rejected", "archived"].includes(status) ? new Date() : before.reviewedAt,
+        },
       })
       await writeAudit(tx, {
         actorId,
         action:
           status === "approved"
-            ? "APPROVE"
+            ? "AI_DRAFT_APPROVED"
             : status === "rejected"
-              ? "REJECT"
-              : "UPDATE",
+              ? "AI_DRAFT_REJECTED"
+              : status === "archived"
+                ? "AI_DRAFT_ARCHIVED"
+                : "UPDATE",
         entityType: entityTypeToPrisma("ai_draft"),
         entityId: id,
         before: auditJson(before),
         after: auditJson(draft),
+      })
+      return aiDraftFromDb(draft)
+    })
+  },
+
+  async mergeAIDraft(id, actorId) {
+    return prisma.$transaction(async (tx) => {
+      const before = await tx.aIDraft.findUniqueOrThrow({ where: { id } })
+
+      if (before.status !== "APPROVED") {
+        throw new Error("Approve the AI draft before merging it into editable content.")
+      }
+
+      const content =
+        before.contentJson && typeof before.contentJson === "object" && !Array.isArray(before.contentJson)
+          ? (before.contentJson as Record<string, unknown>)
+          : {}
+      const localizedField = (enKey: string, ruKey: string, fallback = "") => ({
+        en: typeof content[enKey] === "string" ? (content[enKey] as string) : fallback,
+        ru: typeof content[ruKey] === "string" ? (content[ruKey] as string) : fallback,
+      })
+      const protectedStatuses = ["APPROVED", "PUBLISHED"]
+
+      if (before.relatedEntityType === "LAUNCH") {
+        const launch = await tx.launch.findUniqueOrThrow({ where: { id: before.relatedEntityId } })
+        if (protectedStatuses.includes(launch.publishStatus)) {
+          throw new Error("AI drafts cannot overwrite approved or published launch records.")
+        }
+
+        if (before.type === "LAUNCH_SUMMARY") {
+          await tx.launch.update({
+            where: { id: launch.id },
+            data: {
+              contentTitle: localizedToJson(localizedField("titleEn", "titleRu", "")),
+              contentDescription: localizedToJson(localizedField("summaryEn", "summaryRu", "")),
+              missionDescription: localizedToJson(localizedField("summaryEn", "summaryRu", "")),
+              aiGenerated: true,
+            },
+          })
+        } else if (before.type === "SEO") {
+          await tx.launch.update({
+            where: { id: launch.id },
+            data: {
+              seoTitle: localizedToJson(localizedField("seoTitleEn", "seoTitleRu", "")),
+              metaDescription: localizedToJson(localizedField("metaDescriptionEn", "metaDescriptionRu", "")),
+              aiGenerated: true,
+            },
+          })
+        } else if (before.type === "ARTICLE") {
+          const slug = `${launch.slug}-ai-${before.id.slice(0, 8)}`
+          await tx.article.create({
+            data: {
+              slug,
+              title: localizedToJson(localizedField("titleEn", "titleRu", "AI article draft")),
+              body: localizedToJson(localizedField("bodyEn", "bodyRu", "")),
+              seoTitle: localizedToJson(localizedField("seoTitleEn", "seoTitleRu", "AI article draft")),
+              metaDescription: localizedToJson(localizedField("metaDescriptionEn", "metaDescriptionRu", "")),
+              category: typeof content.category === "string" ? content.category : "mission-guide",
+              aiDraftId: before.id,
+            },
+          })
+        } else if (before.type === "TIMELINE_SUGGESTION" && Array.isArray(content.suggestedEvents)) {
+          const last = await tx.missionTimelineEvent.findFirst({
+            where: { launchId: launch.id },
+            orderBy: { sortOrder: "desc" },
+          })
+          let sortOrder = (last?.sortOrder ?? -1) + 1
+          for (const event of content.suggestedEvents) {
+            if (!event || typeof event !== "object" || Array.isArray(event)) continue
+            const record = event as Record<string, unknown>
+            await tx.missionTimelineEvent.create({
+              data: {
+                launchId: launch.id,
+                type: prismaEnum.timelineType(
+                  typeof record.eventType === "string" ? record.eventType : "custom"
+                ),
+                title: localizedToJson({
+                  en: typeof record.titleEn === "string" ? record.titleEn : "AI timeline event",
+                  ru: typeof record.titleRu === "string" ? record.titleRu : "AI timeline event",
+                }),
+                description: localizedToJson({
+                  en: typeof record.descriptionEn === "string" ? record.descriptionEn : "",
+                  ru: typeof record.descriptionRu === "string" ? record.descriptionRu : "",
+                }),
+                relativeTime: typeof record.relativeTime === "string" ? record.relativeTime : "T+00:00",
+                status: "ESTIMATED",
+                confidenceLevel: prismaEnum.confidence(
+                  typeof record.confidenceLevel === "string" ? record.confidenceLevel : "estimated"
+                ),
+                sortOrder,
+                aiGenerated: true,
+              },
+            })
+            sortOrder += 1
+          }
+        } else {
+          throw new Error("This AI draft type is review-only and cannot be merged into launch content.")
+        }
+      } else if (before.relatedEntityType === "ARTICLE") {
+        const article = await tx.article.findUniqueOrThrow({ where: { id: before.relatedEntityId } })
+        if (protectedStatuses.includes(article.publishStatus)) {
+          throw new Error("AI drafts cannot overwrite approved or published article records.")
+        }
+        await tx.article.update({
+          where: { id: article.id },
+          data: {
+            title: localizedToJson(localizedField("titleEn", "titleRu", article.slug)),
+            body: localizedToJson(localizedField("bodyEn", "bodyRu", "")),
+            seoTitle: localizedToJson(localizedField("seoTitleEn", "seoTitleRu", article.slug)),
+            metaDescription: localizedToJson(localizedField("metaDescriptionEn", "metaDescriptionRu", "")),
+            category: typeof content.category === "string" ? content.category : article.category,
+            aiDraftId: before.id,
+          },
+        })
+      } else if (before.relatedEntityType === "NEWS_ITEM") {
+        const item = await tx.newsItem.findUniqueOrThrow({ where: { id: before.relatedEntityId } })
+        if (protectedStatuses.includes(item.publishStatus)) {
+          throw new Error("AI drafts cannot overwrite approved or published news records.")
+        }
+        await tx.newsItem.update({
+          where: { id: item.id },
+          data: {
+            title: localizedToJson(localizedField("titleEn", "titleRu", item.slug)),
+            summary: localizedToJson(localizedField("summaryEn", "summaryRu", "")),
+          },
+        })
+      } else if (before.relatedEntityType === "FAQ_ITEM" || before.type === "FAQ") {
+        if (!Array.isArray(content.items)) {
+          throw new Error("FAQ draft has no valid items to merge.")
+        }
+        for (const item of content.items) {
+          if (!item || typeof item !== "object" || Array.isArray(item)) continue
+          const record = item as Record<string, unknown>
+          await tx.fAQItem.create({
+            data: {
+              group: prismaEnum.faqGroup(typeof content.group === "string" ? content.group : "basics"),
+              question: localizedToJson({
+                en: typeof record.questionEn === "string" ? record.questionEn : "AI FAQ question",
+                ru: typeof record.questionRu === "string" ? record.questionRu : "AI FAQ question",
+              }),
+              answer: localizedToJson({
+                en: typeof record.answerEn === "string" ? record.answerEn : "",
+                ru: typeof record.answerRu === "string" ? record.answerRu : "",
+              }),
+            },
+          })
+        }
+      } else {
+        throw new Error("This AI draft type is review-only and cannot be merged automatically.")
+      }
+
+      const draft = await tx.aIDraft.update({
+        where: { id },
+        data: {
+          status: "MERGED",
+          reviewedById: actorId,
+          reviewedAt: new Date(),
+        },
+      })
+      await writeAudit(tx, {
+        actorId,
+        action: "AI_DRAFT_MERGED",
+        entityType: entityTypeToPrisma("ai_draft"),
+        entityId: id,
+        before: auditJson(before),
+        after: auditJson(draft),
+        reason: "AI draft merged into editable draft content only.",
       })
       return aiDraftFromDb(draft)
     })

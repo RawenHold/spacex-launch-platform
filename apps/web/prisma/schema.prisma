@@ -144,6 +144,7 @@ enum AIDraftStatus {
   APPROVED     @map("approved")
   REJECTED     @map("rejected")
   MERGED       @map("merged")
+  ARCHIVED     @map("archived")
 }
 
 enum AdminEntityType {
@@ -174,6 +175,13 @@ enum AuditAction {
   OVERRIDE          @map("override")
   SIGN_IN           @map("sign_in")
   RATE_LIMIT        @map("rate_limit")
+  AI_GENERATE_REQUESTED @map("ai_generate_requested")
+  AI_GENERATE_SUCCEEDED @map("ai_generate_succeeded")
+  AI_GENERATE_FAILED    @map("ai_generate_failed")
+  AI_DRAFT_APPROVED     @map("ai_draft_approved")
+  AI_DRAFT_REJECTED     @map("ai_draft_rejected")
+  AI_DRAFT_MERGED       @map("ai_draft_merged")
+  AI_DRAFT_ARCHIVED     @map("ai_draft_archived")
 }
 
 enum FAQGroup {
@@ -203,6 +211,7 @@ model AdminUser {
   approvedRecords  ApprovalRecord[]  @relation("ApprovedApprovals")
   rejectedRecords  ApprovalRecord[]  @relation("RejectedApprovals")
   aiDrafts         AIDraft[]         @relation("AIDraftCreator")
+  reviewedAIDrafts AIDraft[]         @relation("AIDraftReviewer")
   externalSyncRuns ExternalSyncRun[] @relation("ExternalSyncRequester")
   approvedVideos   VideoRecord[]     @relation("VideoApprover")
 
@@ -475,21 +484,33 @@ model AIDraft {
   type              AIDraftType
   status            AIDraftStatus   @default(GENERATED)
   createdById       String          @map("created_by_id")
+  reviewedById      String?         @map("reviewed_by_id")
   relatedEntityType AdminEntityType @map("related_entity_type")
   relatedEntityId   String          @map("related_entity_id")
   title             Json
   content           Json
+  contentJson       Json?           @map("content_json")
+  contentRu         String?         @map("content_ru")
+  contentEn         String?         @map("content_en")
   citations         Json
+  sourcesJson       Json?           @map("sources_json")
   confidenceNotes   Json            @map("confidence_notes")
   riskNotes         Json            @map("risk_notes")
+  missingData       Json?           @map("missing_data")
   sourceComparison  Json?           @map("source_comparison")
+  provider          String          @default("mock")
+  model             String?
+  promptVersion     String          @default("ai-drafts-v1") @map("prompt_version")
+  reviewedAt        DateTime?       @map("reviewed_at")
   createdAt         DateTime        @default(now()) @map("created_at")
   updatedAt         DateTime        @updatedAt @map("updated_at")
 
   createdBy AdminUser @relation("AIDraftCreator", fields: [createdById], references: [id])
+  reviewedBy AdminUser? @relation("AIDraftReviewer", fields: [reviewedById], references: [id])
 
   @@index([status])
   @@index([relatedEntityType, relatedEntityId])
+  @@index([reviewedById])
   @@map("ai_drafts")
 }
 

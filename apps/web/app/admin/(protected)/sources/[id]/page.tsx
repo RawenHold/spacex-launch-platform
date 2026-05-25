@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { Save } from "lucide-react"
 
+import { AdminAIActionPanel } from "@/components/admin/admin-ai-action-panel"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
 import { Badge } from "@/components/ui/badge"
@@ -94,6 +95,19 @@ export default async function AdminSourceDetailPage({
           <textarea name="notes" defaultValue={source.notes ?? ""} className="min-h-28 rounded-lg border border-input bg-background/60 px-3 py-2 text-sm lg:col-span-2" />
         </form>
       </section>
+
+      <AdminAIActionPanel
+        relatedEntityType="source"
+        relatedEntityId={source.id}
+        returnTo={`/admin/sources/${source.id}`}
+        actions={[
+          {
+            task: "source_comparison",
+            label: "Compare source context",
+            instruction: "Summarize related conflicts, matching claims, missing data, and manual checks for this source.",
+          },
+        ]}
+      />
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="mission-panel rounded-lg p-5">

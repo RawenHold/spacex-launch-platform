@@ -1,6 +1,7 @@
 import { FilePlus2, HelpCircle } from "lucide-react"
 import Link from "next/link"
 
+import { AdminAIActionPanel } from "@/components/admin/admin-ai-action-panel"
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
 import { AdminDataTable } from "@/components/admin/admin-data-table"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
@@ -68,6 +69,19 @@ export default async function AdminFAQPage() {
           </button>
         </form>
       </section>
+
+      <AdminAIActionPanel
+        relatedEntityType="faq"
+        relatedEntityId={faqs[0]?.id ?? "educational-faq"}
+        returnTo="/admin/faq"
+        actions={[
+          {
+            task: "faq",
+            label: "Generate FAQ items",
+            instruction: "Generate educational RU/EN FAQ entries for Max Q, MECO, SECO, booster landing, livestreams, data accuracy, and reminders. Use only provided context.",
+          },
+        ]}
+      />
 
       <section className="mission-panel rounded-lg p-5">
         <AdminDataTable<AdminFAQItem>

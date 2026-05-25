@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import { Save } from "lucide-react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
+import { AdminAIActionPanel } from "@/components/admin/admin-ai-action-panel"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { buttonVariants } from "@/components/ui/button"
 import { transitionApprovalAction, updateArticleAction } from "@/lib/admin/actions"
@@ -49,6 +50,24 @@ export default async function AdminArticleDetailPage({
           <textarea name="bodyRu" defaultValue={article.body.ru} required className="min-h-56 rounded-lg border border-input bg-background/60 px-3 py-2 text-sm" />
         </form>
       </section>
+
+      <AdminAIActionPanel
+        relatedEntityType="article"
+        relatedEntityId={article.id}
+        returnTo={`/admin/articles/${article.id}`}
+        actions={[
+          {
+            task: "article",
+            label: "Generate article draft",
+            instruction: "Generate or improve the bilingual article draft using existing article fields and source records.",
+          },
+          {
+            task: "seo",
+            label: "Generate SEO",
+            instruction: "Generate RU/EN SEO metadata for this draft article.",
+          },
+        ]}
+      />
 
       <section className="mission-panel rounded-lg p-5">
         <p className="mission-eyebrow">Approval</p>

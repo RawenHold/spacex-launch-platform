@@ -180,6 +180,24 @@ Controls:
 
 Before production, add centralized rate limits, YouTube quota monitoring, and alerts for repeated video conflicts or non-official channel candidates.
 
+## AI Draft Security
+
+AI draft generation is available from admin pages only. The implementation is intentionally review-first:
+
+- OpenAI code is server-only under `apps/web/lib/server/ai`.
+- `OPENAI_API_KEY` is never rendered, logged, or imported into client components.
+- `ENABLE_AI_DRAFTS=false` disables real API calls.
+- Missing `OPENAI_API_KEY` falls back to deterministic mock generation when AI is enabled.
+- Admin/editor/researcher roles with `generate_ai_drafts` can request drafts.
+- AI Moderator remains a system identity and cannot sign in, approve, publish, delete, or overwrite official records.
+- AI responses are validated against structured schemas before persistence.
+- Invalid responses are saved as rejected draft attempts with safe metadata.
+- Merge is blocked for approved or published target records.
+- AI source comparison drafts explain conflicts; they do not choose final values.
+- AI actions are rate-limited through the admin write limiter and audited.
+
+Audit actions include `ai_generate_requested`, `ai_generate_succeeded`, `ai_generate_failed`, `ai_draft_approved`, `ai_draft_rejected`, `ai_draft_merged`, and `ai_draft_archived`.
+
 ## Secret Handling
 
 Never commit real secrets. Required secrets are documented in:

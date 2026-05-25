@@ -21,6 +21,7 @@ Supabase Auth is not integrated in this stage because there is no Supabase proje
 - `apps/web/prisma/migrations/202605250001_admin_stabilization/migration.sql` - admin user status and rate-limit audit event migration.
 - `apps/web/prisma/migrations/202605250002_external_sync_foundation/migration.sql` - Launch Library sync run/import record support and import metadata on launches.
 - `apps/web/prisma/migrations/202605250003_youtube_video_records/migration.sql` - YouTube video candidate persistence.
+- `apps/web/prisma/migrations/202605250004_ai_drafts_openai_foundation/migration.sql` - structured AI draft metadata, review fields, and AI audit events.
 - `apps/web/prisma/seed.ts` - safe seed script.
 - `apps/web/prisma.config.ts` - Prisma CLI config and seed path.
 - `apps/web/lib/db.ts` - Prisma Client singleton.
@@ -124,6 +125,41 @@ Repository methods:
 - safe raw API payload snapshot
 
 The table has a unique provider/video id constraint and indexes for launch, publish status, approval state, and channel id. Discovery creates or updates unpublished candidates only. Approval/publish actions are explicit admin workflow events and write `AuditLog` rows.
+
+## AI Draft Persistence
+
+`AIDraft` now stores structured AI output for human review:
+
+- draft type and status
+- related entity type/id
+- localized preview title/content
+- `contentJson` for schema-shaped AI output
+- `contentRu` and `contentEn` preview bodies
+- citations and `sourcesJson`
+- confidence notes, risk notes, and missing data
+- provider, model, and prompt version
+- reviewedBy/reviewedAt metadata
+
+AI draft statuses include:
+
+- generated
+- needs_review
+- approved
+- rejected
+- merged
+- archived
+
+AI lifecycle events are represented in `AuditLog`:
+
+- ai_generate_requested
+- ai_generate_succeeded
+- ai_generate_failed
+- ai_draft_approved
+- ai_draft_rejected
+- ai_draft_merged
+- ai_draft_archived
+
+AI-generated content never becomes public by itself. Merge writes only editable draft content, and normal approval/publish workflow remains required.
 
 ## Migrations
 

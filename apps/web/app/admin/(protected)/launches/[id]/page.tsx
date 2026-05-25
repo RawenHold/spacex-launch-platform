@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ListChecks, Save, Video } from "lucide-react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
+import { AdminAIActionPanel } from "@/components/admin/admin-ai-action-panel"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
 import { Badge } from "@/components/ui/badge"
@@ -112,6 +113,39 @@ export default async function AdminLaunchDetailPage({
           <textarea name="missionDescriptionRu" defaultValue={launch.missionDescription.ru} required className="min-h-32 rounded-lg border border-input bg-background/60 px-3 py-2 text-sm" />
         </form>
       </section>
+
+      <AdminAIActionPanel
+        relatedEntityType="launch"
+        relatedEntityId={launch.id}
+        returnTo={`/admin/launches/${launch.id}`}
+        actions={[
+          {
+            task: "launch_summary",
+            label: "Generate mission summary",
+            instruction: "Generate RU/EN mission summary from launch fields, timeline, videos, and source records.",
+          },
+          {
+            task: "timeline_suggestion",
+            label: "Suggest timeline",
+            instruction: "Suggest planned timeline events only from provided launch context and sources.",
+          },
+          {
+            task: "source_comparison",
+            label: "Compare sources",
+            instruction: "Compare source records and highlight conflicts without choosing a final value.",
+          },
+          {
+            task: "seo",
+            label: "Generate SEO",
+            instruction: "Generate RU/EN SEO metadata using only verified launch context.",
+          },
+          {
+            task: "article",
+            label: "Generate article draft",
+            instruction: "Generate a bilingual launch article draft with uncertainty and source notes.",
+          },
+        ]}
+      />
 
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="mission-panel rounded-lg p-5">

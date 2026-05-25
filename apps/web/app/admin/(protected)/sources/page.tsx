@@ -1,6 +1,7 @@
 import { AlertTriangle, ExternalLink, Plus, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 
+import { AdminAIActionPanel } from "@/components/admin/admin-ai-action-panel"
 import { AdminDataTable } from "@/components/admin/admin-data-table"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
@@ -72,6 +73,19 @@ export default async function AdminSourcesPage() {
           </button>
         </form>
       </section>
+
+      <AdminAIActionPanel
+        relatedEntityType="source"
+        relatedEntityId={sources[0]?.id ?? conflicts[0]?.id ?? "source-conflicts"}
+        returnTo="/admin/sources"
+        actions={[
+          {
+            task: "source_comparison",
+            label: "Compare source conflicts",
+            instruction: "Compare open source conflicts and explain differences without choosing a final value.",
+          },
+        ]}
+      />
 
       <section className="mission-panel rounded-lg p-5">
         <AdminDataTable<AdminSourceRecord>

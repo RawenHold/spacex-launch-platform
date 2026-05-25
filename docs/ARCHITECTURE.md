@@ -70,7 +70,7 @@ Known stabilization limitations:
 - Rate limiting is in-memory and must be replaced before multi-instance deployment.
 - External SpaceX data sync is manual-only and imports drafts for review.
 - YouTube discovery is manual-only and stores unpublished draft candidates for review.
-- OpenAI API remains intentionally unintegrated.
+- OpenAI AI draft generation is integrated as a server-only, admin-triggered draft workflow with mock fallback.
 - Seed data is placeholder content and should not be treated as official launch data.
 
 ## YouTube Video Architecture
@@ -86,6 +86,23 @@ Stage 7 adds safe YouTube livestream/replay integration without changing public 
 - Approved/published videos are never overwritten silently by new discovery results.
 
 See `docs/YOUTUBE_INTEGRATION.md` for details.
+
+## AI Draft Architecture
+
+Stage 8 adds OpenAI-assisted draft generation without changing the publication model.
+
+- AI service code lives under `apps/web/lib/server/ai`.
+- `OPENAI_API_KEY` is read only server-side.
+- `ENABLE_AI_DRAFTS=true` enables admin-triggered generation.
+- If AI is enabled but no API key is configured, deterministic mock drafts are generated.
+- Structured outputs are validated with Zod before persistence.
+- Invalid AI attempts are saved as rejected draft records with safe error metadata.
+- AI drafts persist in `AIDraft` with structured JSON, model/provider metadata, prompt version, missing data, sources, confidence notes, and risk notes.
+- AI can generate drafts, SEO, FAQ, timeline suggestions, article/news/launch summaries, and source comparisons.
+- AI cannot approve, publish, delete, overwrite approved records, or resolve conflicts silently.
+- Merge actions only write editable draft content and are blocked for approved/published target records.
+
+See `docs/AI_DRAFTS.md` for the operational workflow.
 
 ## MVP Scope
 
@@ -396,7 +413,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
 OPENAI_API_KEY=
-AI_DRAFT_MODEL=
+OPENAI_MODEL=gpt-4.1-mini
+ENABLE_AI_DRAFTS=false
 ADMIN_SESSION_SECRET=
 ```
 

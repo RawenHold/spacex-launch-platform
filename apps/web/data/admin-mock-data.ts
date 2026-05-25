@@ -384,6 +384,7 @@ export const adminSettings: AdminSettings = {
   launchLibraryApiConfigured: Boolean(process.env.LAUNCH_LIBRARY_API_KEY),
   youtubeDataApiConfigured: Boolean(process.env.YOUTUBE_DATA_API_KEY),
   openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
+  aiDraftsEnabled: process.env.ENABLE_AI_DRAFTS === "true",
   editorCanPublish: false,
   requireApprovalForAiDrafts: true,
 }

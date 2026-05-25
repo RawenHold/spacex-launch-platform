@@ -89,6 +89,12 @@ export default async function AdminSettingsPage() {
               <span className="text-sm text-muted-foreground">OpenAI API</span>
               <ConfigBadge configured={settings.openAiConfigured} />
             </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-card/60 p-4">
+              <span className="text-sm text-muted-foreground">AI drafts</span>
+              <Badge variant={settings.aiDraftsEnabled ? "success" : "outline"}>
+                {settings.aiDraftsEnabled ? "enabled" : "disabled"}
+              </Badge>
+            </div>
           </div>
         </div>
 

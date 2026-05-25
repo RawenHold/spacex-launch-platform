@@ -51,6 +51,9 @@ ENABLE_EXTERNAL_SYNC=false
 YOUTUBE_API_KEY=
 YOUTUBE_SPACEX_CHANNEL_ID=
 ENABLE_YOUTUBE_SYNC=false
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4.1-mini
+ENABLE_AI_DRAFTS=false
 ```
 
 Some hosted Postgres providers use a pooled connection for runtime and a direct connection for migrations. The current Prisma schema uses `DATABASE_URL`; add `directUrl` later if the selected host requires it.
@@ -67,6 +70,12 @@ Some hosted Postgres providers use a pooled connection for runtime and a direct 
 
 `ENABLE_YOUTUBE_SYNC=true` allows manual YouTube discovery from `/admin/videos` and `/admin/launches/[id]/videos`. Keep it false when discovery should be disabled.
 
+`OPENAI_API_KEY` enables real OpenAI draft generation, but only when `ENABLE_AI_DRAFTS=true`.
+
+`OPENAI_MODEL` defaults to `gpt-4.1-mini`.
+
+`ENABLE_AI_DRAFTS=true` enables admin-triggered draft generation. If it is true and no OpenAI key is configured, the app uses deterministic mock drafts. If it is false, real API calls are disabled and admin AI buttons render disabled.
+
 ## Future Placeholders
 
 These are intentionally present but unused in this stage:
@@ -75,7 +84,6 @@ These are intentionally present but unused in this stage:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-OPENAI_API_KEY=
 ```
 
 Rules:
@@ -93,6 +101,7 @@ npm run prisma:generate
 npm run db:seed:dry-run
 npm run sync:dry-run
 npm run youtube:dry-run
+npm run ai:dry-run
 npm run lint
 npm run typecheck
 npm run build

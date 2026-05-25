@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { AlertTriangle, DatabaseZap, RefreshCw } from "lucide-react"
 
+import { AdminAIActionPanel } from "@/components/admin/admin-ai-action-panel"
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
@@ -66,6 +67,19 @@ export default async function AdminExternalSyncPage() {
           </div>
         </form>
       </section>
+
+      <AdminAIActionPanel
+        relatedEntityType="source"
+        relatedEntityId={data.conflicts[0]?.id ?? "launch-library-sync-conflicts"}
+        returnTo="/admin/sync"
+        actions={[
+          {
+            task: "source_comparison",
+            label: "Explain sync conflicts",
+            instruction: "Compare Launch Library import conflicts and recommend manual admin checks without choosing final values.",
+          },
+        ]}
+      />
 
       <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
         <div className="mission-panel rounded-lg p-5">

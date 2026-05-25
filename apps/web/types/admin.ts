@@ -78,6 +78,13 @@ export type AdminAuditAction =
   | "override"
   | "sign_in"
   | "rate_limit"
+  | "ai_generate_requested"
+  | "ai_generate_succeeded"
+  | "ai_generate_failed"
+  | "ai_draft_approved"
+  | "ai_draft_rejected"
+  | "ai_draft_merged"
+  | "ai_draft_archived"
 
 export type AdminEntityType =
   | "admin_user"
@@ -109,6 +116,7 @@ export type AIDraftStatus =
   | "approved"
   | "rejected"
   | "merged"
+  | "archived"
 
 export interface AdminUser {
   id: string
@@ -247,14 +255,24 @@ export interface AIDraft {
   type: AIDraftType
   status: AIDraftStatus
   createdBy: "ai_moderator"
+  reviewedById?: string
   relatedEntityType: "launch" | "article" | "news" | "source" | "faq"
   relatedEntityId: string
   title: LocalizedText
   content: LocalizedText
+  contentJson?: unknown
+  contentRu?: string
+  contentEn?: string
   citations: AdminSourceRecord[]
+  sourcesJson?: unknown
   confidenceNotes: LocalizedText
   riskNotes: LocalizedText
+  missingData?: unknown
   sourceComparison?: SourceConflict[]
+  provider?: string
+  model?: string
+  promptVersion?: string
+  reviewedAt?: string
   createdAt: string
   updatedAt: string
   approval: ApprovalRecord
@@ -346,6 +364,7 @@ export interface AdminSettings {
   launchLibraryApiConfigured: boolean
   youtubeDataApiConfigured: boolean
   openAiConfigured: boolean
+  aiDraftsEnabled: boolean
   editorCanPublish: boolean
   requireApprovalForAiDrafts: boolean
 }

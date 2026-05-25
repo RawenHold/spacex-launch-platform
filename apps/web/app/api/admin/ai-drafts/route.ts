@@ -89,6 +89,7 @@ export async function POST(request: Request) {
     relatedEntityId: body.relatedEntityId,
     structuredInput: isRecord(body.structuredInput) ? body.structuredInput : {},
     sources: Array.isArray(body.sources) ? (body.sources as AdminSourceRecord[]) : [],
+    actorId: user.id,
   })
 
   return NextResponse.json({

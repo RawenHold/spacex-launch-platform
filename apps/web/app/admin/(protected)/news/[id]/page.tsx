@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import { Save } from "lucide-react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
+import { AdminAIActionPanel } from "@/components/admin/admin-ai-action-panel"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -69,6 +70,24 @@ export default async function AdminNewsDetailPage({
           <textarea name="summaryRu" defaultValue={item.summary.ru} required className="min-h-40 rounded-lg border border-input bg-background/60 px-3 py-2 text-sm" />
         </form>
       </section>
+
+      <AdminAIActionPanel
+        relatedEntityType="news"
+        relatedEntityId={item.id}
+        returnTo={`/admin/news/${item.id}`}
+        actions={[
+          {
+            task: "news_summary",
+            label: "Generate news summary",
+            instruction: "Generate a bilingual news summary from the saved source fields and approved context.",
+          },
+          {
+            task: "seo",
+            label: "Generate SEO",
+            instruction: "Generate RU/EN SEO metadata for this news draft.",
+          },
+        ]}
+      />
 
       <section className="mission-panel rounded-lg p-5">
         <p className="mission-eyebrow">Approval</p>

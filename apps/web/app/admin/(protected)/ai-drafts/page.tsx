@@ -1,4 +1,5 @@
-import { CheckCircle2, GitMerge, XCircle } from "lucide-react"
+import Link from "next/link"
+import { Archive, CheckCircle2, GitMerge, Search, XCircle } from "lucide-react"
 import type { ComponentProps } from "react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
@@ -7,8 +8,9 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { AdminSourceConfidenceBadge } from "@/components/admin/admin-source-confidence-badge"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
-import { updateAIDraftStatusAction } from "@/lib/admin/actions"
+import { mergeAIDraftAction, updateAIDraftStatusAction } from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
+import { getAIRuntimeConfig } from "@/lib/server/ai/service"
 import type { AIDraft } from "@/types/admin"
 
 function draftStatusVariant(
@@ -16,13 +18,45 @@ function draftStatusVariant(
 ): ComponentProps<typeof Badge>["variant"] {
   if (status === "approved" || status === "merged") return "success"
   if (status === "rejected") return "danger"
-  if (status === "needs_review") return "warning"
+  if (status === "needs_review" || status === "archived") return "warning"
   return "info"
 }
 
-export default async function AdminAIDraftsPage() {
+const draftTypes: AIDraft["type"][] = [
+  "launch_summary",
+  "article",
+  "news_summary",
+  "faq",
+  "seo",
+  "timeline_suggestion",
+  "source_comparison",
+]
+
+const draftStatuses: AIDraft["status"][] = [
+  "generated",
+  "needs_review",
+  "approved",
+  "rejected",
+  "merged",
+  "archived",
+]
+const reviewStatuses = draftStatuses.filter((status) => status !== "merged")
+
+export default async function AdminAIDraftsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | undefined>>
+}) {
+  const query = (await searchParams) ?? {}
   const repository = getAdminRepository()
-  const drafts = await repository.listAIDrafts()
+  const runtime = getAIRuntimeConfig()
+  const drafts = await repository.listAIDrafts({
+    type: draftTypes.includes(query.type as AIDraft["type"]) ? (query.type as AIDraft["type"]) : undefined,
+    status: draftStatuses.includes(query.status as AIDraft["status"]) ? (query.status as AIDraft["status"]) : undefined,
+    relatedEntityId: query.relatedEntityId || undefined,
+    from: query.from || undefined,
+    confidence: query.confidence || undefined,
+  })
 
   return (
     <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-8">
@@ -31,6 +65,39 @@ export default async function AdminAIDraftsPage() {
         title="AI draft center"
         description="AI can create drafts, source comparisons, summaries, SEO suggestions, FAQ ideas, and timeline suggestions. It cannot approve, publish, delete, or overwrite official data."
       />
+
+      <section className="mission-panel rounded-lg p-5">
+        <div className="mb-5 flex flex-wrap gap-2">
+          <Badge variant={runtime.enabled ? "success" : "warning"}>
+            {runtime.enabled ? "AI enabled" : "AI disabled"}
+          </Badge>
+          <Badge variant={runtime.realApiAvailable ? "info" : "outline"}>
+            {runtime.realApiAvailable ? runtime.model : "mock mode"}
+          </Badge>
+          <Badge variant="outline">{runtime.promptVersion}</Badge>
+        </div>
+        <form className="grid gap-4 lg:grid-cols-5">
+          <select name="type" defaultValue={query.type ?? ""} className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            <option value="">All draft types</option>
+            {draftTypes.map((type) => (
+              <option key={type} value={type}>{type.replaceAll("_", " ")}</option>
+            ))}
+          </select>
+          <select name="status" defaultValue={query.status ?? ""} className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm">
+            <option value="">All statuses</option>
+            {draftStatuses.map((status) => (
+              <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
+            ))}
+          </select>
+          <input name="relatedEntityId" defaultValue={query.relatedEntityId ?? ""} placeholder="Related entity id" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="from" type="date" defaultValue={query.from ?? ""} className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <input name="confidence" defaultValue={query.confidence ?? ""} placeholder="Confidence text" className="h-10 rounded-lg border border-input bg-background/60 px-3 text-sm" />
+          <button type="submit" className={buttonVariants({ variant: "outline", size: "sm", className: "lg:col-span-5" })}>
+            <Search data-icon aria-hidden="true" />
+            Apply filters
+          </button>
+        </form>
+      </section>
 
       <section className="mission-panel rounded-lg p-5">
         <AdminDataTable<AIDraft>
@@ -44,7 +111,7 @@ export default async function AdminAIDraftsPage() {
                 <div>
                   <p className="font-semibold text-foreground">{draft.title.en}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {draft.type.replaceAll("_", " ")}
+                    {draft.type.replaceAll("_", " ")} · {draft.provider ?? "mock"}
                   </p>
                 </div>
               ),
@@ -59,7 +126,7 @@ export default async function AdminAIDraftsPage() {
                     {draft.status.replaceAll("_", " ")}
                   </Badge>
                   <select name="status" defaultValue={draft.status} className="h-9 rounded-lg border border-input bg-background/60 px-2 text-xs">
-                    {["generated", "needs_review", "approved", "rejected", "merged"].map((status) => (
+                    {reviewStatuses.map((status) => (
                       <option key={status} value={status}>{status.replaceAll("_", " ")}</option>
                     ))}
                   </select>
@@ -68,11 +135,6 @@ export default async function AdminAIDraftsPage() {
                   </button>
                 </form>
               ),
-            },
-            {
-              key: "created",
-              label: "Created by",
-              render: (draft) => <Badge variant="warning">{draft.createdBy}</Badge>,
             },
             {
               key: "related",
@@ -87,9 +149,18 @@ export default async function AdminAIDraftsPage() {
               ),
             },
             {
-              key: "approval",
-              label: "Approval",
+              key: "review",
+              label: "Review",
               render: (draft) => <AdminApprovalBadge status={draft.approval.status} />,
+            },
+            {
+              key: "actions",
+              label: "Actions",
+              render: (draft) => (
+                <Link href={`/admin/ai-drafts/${draft.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  View
+                </Link>
+              ),
             },
           ]}
         />
@@ -158,12 +229,23 @@ export default async function AdminAIDraftsPage() {
                   Reject
                 </button>
               </form>
-              <form action={updateAIDraftStatusAction}>
+              <form action={mergeAIDraftAction}>
                 <input type="hidden" name="id" value={draft.id} />
-                <input type="hidden" name="status" value="merged" />
-                <button type="submit" className={buttonVariants({ variant: "outline", size: "sm" })}>
+                <button
+                  type="submit"
+                  disabled={draft.status !== "approved" || draft.type === "source_comparison"}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
                   <GitMerge data-icon aria-hidden="true" />
                   Merge into content
+                </button>
+              </form>
+              <form action={updateAIDraftStatusAction}>
+                <input type="hidden" name="id" value={draft.id} />
+                <input type="hidden" name="status" value="archived" />
+                <button type="submit" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  <Archive data-icon aria-hidden="true" />
+                  Archive
                 </button>
               </form>
             </div>

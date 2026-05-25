@@ -1,5 +1,6 @@
 import { Search } from "lucide-react"
 
+import { AdminAIActionPanel } from "@/components/admin/admin-ai-action-panel"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -20,6 +21,13 @@ const actions: AdminAuditAction[] = [
   "override",
   "sign_in",
   "rate_limit",
+  "ai_generate_requested",
+  "ai_generate_succeeded",
+  "ai_generate_failed",
+  "ai_draft_approved",
+  "ai_draft_rejected",
+  "ai_draft_merged",
+  "ai_draft_archived",
 ]
 
 const entityTypes: AdminEntityType[] = [
@@ -97,6 +105,19 @@ export default async function AdminAuditPage({
           </button>
         </form>
       </section>
+
+      <AdminAIActionPanel
+        relatedEntityType="source"
+        relatedEntityId={logs[0]?.entityId ?? "audit-review"}
+        returnTo="/admin/audit"
+        actions={[
+          {
+            task: "source_comparison",
+            label: "Generate audit review note",
+            instruction: "Summarize source-related audit signals and recommend manual checks. Do not resolve values.",
+          },
+        ]}
+      />
 
       <section className="mission-panel rounded-lg p-5">
         <div className="mb-5 flex items-center justify-between gap-3">
