@@ -28,6 +28,7 @@ const entityTypes: AdminEntityType[] = [
   "timeline_event",
   "source_record",
   "source_conflict",
+  "video_record",
   "external_sync_run",
   "external_import_record",
   "article",

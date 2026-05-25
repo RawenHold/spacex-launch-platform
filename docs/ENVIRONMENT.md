@@ -48,6 +48,9 @@ ENABLE_MOCK_FALLBACK=true
 LAUNCH_LIBRARY_BASE_URL=https://ll.thespacedevs.com/2.3.0
 LAUNCH_LIBRARY_API_KEY=
 ENABLE_EXTERNAL_SYNC=false
+YOUTUBE_API_KEY=
+YOUTUBE_SPACEX_CHANNEL_ID=
+ENABLE_YOUTUBE_SYNC=false
 ```
 
 Some hosted Postgres providers use a pooled connection for runtime and a direct connection for migrations. The current Prisma schema uses `DATABASE_URL`; add `directUrl` later if the selected host requires it.
@@ -58,6 +61,12 @@ Some hosted Postgres providers use a pooled connection for runtime and a direct 
 
 `LAUNCH_LIBRARY_API_KEY` is optional; Launch Library can be used without a key for basic access, but configured keys must remain server-only.
 
+`YOUTUBE_API_KEY` enables optional YouTube Data API v3 discovery from admin pages and scripts. It must remain server-only.
+
+`YOUTUBE_SPACEX_CHANNEL_ID` should be set to the official SpaceX YouTube channel id for reliable primary-source matching. If it is missing, manual URL add still works and discovery can run broader searches, but confidence is lower.
+
+`ENABLE_YOUTUBE_SYNC=true` allows manual YouTube discovery from `/admin/videos` and `/admin/launches/[id]/videos`. Keep it false when discovery should be disabled.
+
 ## Future Placeholders
 
 These are intentionally present but unused in this stage:
@@ -67,7 +76,6 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=
-YOUTUBE_API_KEY=
 ```
 
 Rules:
@@ -84,6 +92,7 @@ npm run db:validate
 npm run prisma:generate
 npm run db:seed:dry-run
 npm run sync:dry-run
+npm run youtube:dry-run
 npm run lint
 npm run typecheck
 npm run build

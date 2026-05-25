@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   TableProperties,
   Users,
+  Video,
 } from "lucide-react"
 import Link from "next/link"
 
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/admin/faq", label: "FAQ", icon: TableProperties },
   { href: "/admin/sources", label: "Sources", icon: ShieldCheck },
   { href: "/admin/sync", label: "External sync", icon: RefreshCw },
+  { href: "/admin/videos", label: "Videos", icon: Video },
   { href: "/admin/ai-drafts", label: "AI drafts", icon: Bot },
   { href: "/admin/audit", label: "Audit log", icon: ListTree },
   { href: "/admin/users", label: "Users", icon: Users },

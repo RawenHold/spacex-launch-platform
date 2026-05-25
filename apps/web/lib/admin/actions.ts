@@ -3,10 +3,15 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { requireAdminPermission } from "@/lib/admin/auth"
+import { requireAdminPermission, requireAdminRole } from "@/lib/admin/auth"
 import { enforceAdminWriteRateLimit } from "@/lib/admin/rate-limit"
 import { getAdminRepository } from "@/lib/admin/repository"
 import { runLaunchLibrarySync } from "@/lib/server/sync/sync-service"
+import {
+  addManualYouTubeVideoCandidate,
+  discoverAndStoreYouTubeVideos,
+  updateVideoRecordStatus,
+} from "@/lib/server/youtube/service"
 import type {
   AdminLaunchRecord,
   AdminRole,
@@ -669,6 +674,28 @@ export async function updateAdminUserStatusAction(formData: FormData) {
   revalidateAdmin(["/admin/users"])
 }
 
+async function requireYouTubeDiscoveryRole() {
+  const user = await requireAdminRole(["admin", "editor"])
+  await enforceAdminWriteRateLimit(user.id)
+  return user
+}
+
+async function requireYouTubeManualCandidateRole() {
+  const user = await requireAdminRole(["admin", "editor", "researcher"])
+  await enforceAdminWriteRateLimit(user.id)
+  return user
+}
+
+async function requireYouTubeStatusRole(status: z.infer<typeof publishableSchema>) {
+  if (["approved", "published", "rejected", "archived"].includes(status)) {
+    return requireWritePermission(["approve"])
+  }
+
+  const user = await requireAdminRole(["admin", "editor"])
+  await enforceAdminWriteRateLimit(user.id)
+  return user
+}
+
 export async function runLaunchLibrarySyncAction(formData: FormData) {
   const user = await requireWritePermission(["manage_settings"])
 
@@ -691,6 +718,75 @@ export async function runLaunchLibrarySyncAction(formData: FormData) {
     limit: 25,
   })
   revalidateAdmin(["/admin/sync", "/admin/launches", "/admin/sources", "/admin/audit"])
+}
+
+export async function runYouTubeDiscoveryAction(formData: FormData) {
+  const user = await requireYouTubeDiscoveryRole()
+
+  if (process.env.ENABLE_YOUTUBE_SYNC !== "true") {
+    throw new Error("YouTube discovery is disabled. Set ENABLE_YOUTUBE_SYNC=true to run discovery.")
+  }
+
+  const launchId = z.string().min(1).parse(formData.get("launchId"))
+  await discoverAndStoreYouTubeVideos({ launchId, actorId: user.id })
+  revalidateAdmin([
+    "/admin/videos",
+    `/admin/launches/${launchId}`,
+    `/admin/launches/${launchId}/videos`,
+    "/admin/audit",
+  ])
+}
+
+export async function addManualYouTubeVideoAction(formData: FormData) {
+  const user = await requireYouTubeManualCandidateRole()
+  const parsed = z
+    .object({
+      launchId: z.string().min(1),
+      url: z.string().min(8),
+    })
+    .parse({
+      launchId: formData.get("launchId"),
+      url: formData.get("url"),
+    })
+
+  await addManualYouTubeVideoCandidate({
+    launchId: parsed.launchId,
+    url: parsed.url,
+    actorId: user.id,
+  })
+  revalidateAdmin([
+    "/admin/videos",
+    `/admin/launches/${parsed.launchId}`,
+    `/admin/launches/${parsed.launchId}/videos`,
+    "/admin/audit",
+  ])
+}
+
+export async function updateVideoStatusAction(formData: FormData) {
+  const parsed = z
+    .object({
+      id: z.string().min(1),
+      launchId: z.string().min(1),
+      status: publishableSchema,
+    })
+    .parse({
+      id: formData.get("id"),
+      launchId: formData.get("launchId"),
+      status: formData.get("status"),
+    })
+  const user = await requireYouTubeStatusRole(parsed.status)
+
+  await updateVideoRecordStatus({
+    id: parsed.id,
+    status: parsed.status,
+    actorId: user.id,
+  })
+  revalidateAdmin([
+    "/admin/videos",
+    `/admin/launches/${parsed.launchId}`,
+    `/admin/launches/${parsed.launchId}/videos`,
+    "/admin/audit",
+  ])
 }
 
 export type LaunchStatusForForm = AdminLaunchRecord["status"]

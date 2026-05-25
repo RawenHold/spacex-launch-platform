@@ -59,16 +59,33 @@ Admin additions:
 - `/admin/audit` for admin-only audit review with masked JSON details.
 - `/admin/users` for admin-only user records, roles, and status.
 - `/admin/sync` for manual Launch Library 2 import runs.
+- `/admin/videos` and `/admin/launches/[id]/videos` for YouTube livestream/replay candidate review.
 - Detail/edit pages for launches, timeline events, articles, news, FAQ, and sources.
 - In-memory rate limiting for admin login, write actions, and admin API routes.
 - External sync layer in `apps/web/lib/server/sync` for fetching, normalizing, conflict detection, import records, and audit logging.
+- Server-only YouTube layer in `apps/web/lib/server/youtube` for URL parsing, optional YouTube Data API discovery, confidence scoring, conflicts, and draft video persistence.
 
 Known stabilization limitations:
 
 - Rate limiting is in-memory and must be replaced before multi-instance deployment.
 - External SpaceX data sync is manual-only and imports drafts for review.
-- YouTube Data API and OpenAI API remain intentionally unintegrated.
+- YouTube discovery is manual-only and stores unpublished draft candidates for review.
+- OpenAI API remains intentionally unintegrated.
 - Seed data is placeholder content and should not be treated as official launch data.
+
+## YouTube Video Architecture
+
+Stage 7 adds safe YouTube livestream/replay integration without changing public visual design.
+
+- Public launch detail pages only read approved or published `VideoRecord` rows that belong to an already published launch.
+- `launch.youtubeUrlOrVideoId` and Launch Library webcast URLs are treated as candidate inputs, not public truth.
+- YouTube Data API code is server-only and reads `YOUTUBE_API_KEY` only from server environment variables.
+- Discovery is manually triggered from admin UI and gated by `ENABLE_YOUTUBE_SYNC=true`.
+- Candidate review lives at `/admin/videos` and `/admin/launches/[id]/videos`.
+- Video conflicts are stored as `SourceConflict` rows on the launch and written to `AuditLog`.
+- Approved/published videos are never overwritten silently by new discovery results.
+
+See `docs/YOUTUBE_INTEGRATION.md` for details.
 
 ## MVP Scope
 

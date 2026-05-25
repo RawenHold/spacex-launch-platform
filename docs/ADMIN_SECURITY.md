@@ -156,6 +156,30 @@ Controls:
 
 Before production scheduling, move rate limits to centralized storage and add monitoring for sync failures and conflict spikes.
 
+## YouTube Integration Security
+
+Manual YouTube discovery is available at:
+
+```text
+/admin/videos
+/admin/launches/[id]/videos
+```
+
+Controls:
+
+- YouTube Data API code is server-only under `apps/web/lib/server/youtube`.
+- `YOUTUBE_API_KEY` is never imported into client components or rendered in admin UI.
+- Manual discovery requires `ENABLE_YOUTUBE_SYNC=true`.
+- Discovery writes draft/unapproved `VideoRecord` candidates only.
+- Launch Library webcast URLs and manual URLs are parsed as candidates, not public truth.
+- Public pages only embed approved or published video records attached to published launches.
+- Researchers may add manual candidates; approval/publish remains restricted by approval permissions.
+- AI Moderator cannot approve, publish, delete, or overwrite video records.
+- YouTube review actions are rate-limited and audited.
+- Approved/published video links are not overwritten by discovery; conflicts are surfaced for admin review.
+
+Before production, add centralized rate limits, YouTube quota monitoring, and alerts for repeated video conflicts or non-official channel candidates.
+
 ## Secret Handling
 
 Never commit real secrets. Required secrets are documented in:

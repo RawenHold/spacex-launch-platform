@@ -20,6 +20,7 @@ Supabase Auth is not integrated in this stage because there is no Supabase proje
 - `apps/web/prisma/migrations/202605240001_admin_backend_foundation/migration.sql` - initial SQL migration.
 - `apps/web/prisma/migrations/202605250001_admin_stabilization/migration.sql` - admin user status and rate-limit audit event migration.
 - `apps/web/prisma/migrations/202605250002_external_sync_foundation/migration.sql` - Launch Library sync run/import record support and import metadata on launches.
+- `apps/web/prisma/migrations/202605250003_youtube_video_records/migration.sql` - YouTube video candidate persistence.
 - `apps/web/prisma/seed.ts` - safe seed script.
 - `apps/web/prisma.config.ts` - Prisma CLI config and seed path.
 - `apps/web/lib/db.ts` - Prisma Client singleton.
@@ -42,6 +43,7 @@ Implemented persistent models:
 - `AuditLog`
 - `ExternalSyncRun`
 - `ExternalImportRecord`
+- `VideoRecord`
 
 The schema stores bilingual fields as JSON with the current shape `{ en, ru }`, while keeping the application types ready for future `es`, `it`, and `fr`.
 
@@ -59,6 +61,8 @@ Draft, in-review, rejected, and archived records are not visible publicly.
 Mock data is isolated as a development fallback only. If the database has no published rows or is unavailable during local development, the page can show local mock data with a visible development warning. Production returns graceful empty states instead of mock data.
 
 Imported external records remain private because they are inserted as unpublished drafts. Public DB queries do not include imported drafts until an admin explicitly approves and publishes them.
+
+Public video embeds are stricter: launch detail pages only expose `VideoRecord` rows where the parent launch is published, the video belongs to that launch, and the video is approved or published. Draft, rejected, archived, or unreviewed YouTube candidates remain admin-only.
 
 Repository methods:
 
@@ -102,6 +106,24 @@ Repository methods:
 - `syncHash`
 - `importBatchId`
 - `externalRawJson`
+
+## YouTube Video Records
+
+`VideoRecord` stores YouTube livestream/replay candidates:
+
+- provider and provider video id
+- canonical URL
+- localized title/description
+- channel id/title
+- thumbnail URL
+- scheduled/actual live times
+- live/upcoming/completed hint
+- publish status and approval fields
+- confidence level, score, and notes
+- source type
+- safe raw API payload snapshot
+
+The table has a unique provider/video id constraint and indexes for launch, publish status, approval state, and channel id. Discovery creates or updates unpublished candidates only. Approval/publish actions are explicit admin workflow events and write `AuditLog` rows.
 
 ## Migrations
 

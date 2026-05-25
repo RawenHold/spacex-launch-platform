@@ -85,6 +85,7 @@ export type AdminEntityType =
   | "timeline_event"
   | "source_record"
   | "source_conflict"
+  | "video_record"
   | "external_sync_run"
   | "external_import_record"
   | "article"
@@ -172,7 +173,7 @@ export interface AdminSourceRecord extends Omit<SourceRecord, "notes"> {
 
 export interface SourceConflict {
   id: string
-  entityType: "launch" | "article" | "news" | "source"
+  entityType: "launch" | "article" | "news" | "source" | "video_record"
   entityId: string
   field: string
   sources: Array<{
@@ -285,6 +286,36 @@ export interface AdminNewsItem {
   confidenceLevel: DataConfidenceLevel
   publishStatus: PublishableStatus
   approval: ApprovalRecord
+  updatedAt: string
+}
+
+export interface AdminVideoRecord {
+  id: string
+  launchId: string
+  launchName?: string
+  provider: "youtube"
+  providerVideoId?: string
+  url?: string
+  title: LocalizedText
+  description: LocalizedText
+  channelId?: string
+  channelTitle?: string
+  thumbnailUrl?: string
+  scheduledStartTime?: string
+  actualStartTime?: string
+  actualEndTime?: string
+  liveBroadcastContent?: string
+  duration?: string
+  publishStatus: PublishableStatus
+  confidenceLevel: DataConfidenceLevel
+  sourceType: AdminSourceType
+  confidenceScore: number
+  confidenceNotes?: string
+  isApproved: boolean
+  approvedById?: string
+  approvedAt?: string
+  externalRawJson?: unknown
+  createdAt: string
   updatedAt: string
 }
 

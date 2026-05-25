@@ -1,4 +1,4 @@
-import { CalendarClock, FilePlus2, ListChecks, Pencil, Plus, Radio } from "lucide-react"
+import { CalendarClock, FilePlus2, ListChecks, Pencil, Plus, Radio, Video } from "lucide-react"
 import Link from "next/link"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
@@ -228,6 +228,13 @@ export default async function AdminLaunchesPage() {
                   >
                     <ListChecks data-icon aria-hidden="true" />
                     Timeline
+                  </Link>
+                  <Link
+                    href={`/admin/launches/${launch.id}/videos`}
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    <Video data-icon aria-hidden="true" />
+                    Videos
                   </Link>
                   <Link
                     href={`/admin/launches/${launch.id}`}

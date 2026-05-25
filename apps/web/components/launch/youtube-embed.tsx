@@ -12,7 +12,9 @@ export function YouTubeEmbed({
   video?: VideoRecord
   labels: Record<VideoRecord["state"], string> & { placeholder: string }
 }) {
-  const videoId = video?.isPlaceholder ? undefined : extractYouTubeId(video?.videoId ?? video?.url)
+  const videoId = video?.isPlaceholder
+    ? undefined
+    : extractYouTubeId(video?.providerVideoId ?? video?.videoId ?? video?.url)
 
   if (!video || !videoId) {
     return (

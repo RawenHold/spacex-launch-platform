@@ -87,6 +87,7 @@ export interface VideoRecord {
   id: string
   provider: "youtube"
   title: LocalizedText
+  providerVideoId?: string
   videoId?: string
   url?: string
   state: VideoState

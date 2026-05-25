@@ -124,6 +124,10 @@ enum ExternalImportSyncStatus {
   ERROR    @map("error")
 }
 
+enum VideoProvider {
+  YOUTUBE @map("youtube")
+}
+
 enum AIDraftType {
   LAUNCH_SUMMARY      @map("launch_summary")
   ARTICLE             @map("article")
@@ -148,6 +152,7 @@ enum AdminEntityType {
   TIMELINE_EVENT @map("timeline_event")
   SOURCE_RECORD  @map("source_record")
   SOURCE_CONFLICT @map("source_conflict")
+  VIDEO_RECORD    @map("video_record")
   EXTERNAL_SYNC_RUN @map("external_sync_run")
   EXTERNAL_IMPORT_RECORD @map("external_import_record")
   ARTICLE        @map("article")
@@ -199,6 +204,7 @@ model AdminUser {
   rejectedRecords  ApprovalRecord[]  @relation("RejectedApprovals")
   aiDrafts         AIDraft[]         @relation("AIDraftCreator")
   externalSyncRuns ExternalSyncRun[] @relation("ExternalSyncRequester")
+  approvedVideos   VideoRecord[]     @relation("VideoApprover")
 
   @@map("admin_users")
 }
@@ -243,6 +249,7 @@ model Launch {
 
   timelineEvents MissionTimelineEvent[]
   sourceRecords  SourceRecord[]
+  videoRecords   VideoRecord[]
 
   @@index([status])
   @@index([publishStatus])
@@ -250,6 +257,45 @@ model Launch {
   @@index([externalProvider, externalId])
   @@index([importBatchId])
   @@map("launches")
+}
+
+model VideoRecord {
+  id                   String              @id @default(cuid())
+  launchId             String              @map("launch_id")
+  provider             VideoProvider       @default(YOUTUBE)
+  providerVideoId      String?             @map("provider_video_id")
+  url                  String?
+  title                Json
+  description          Json
+  channelId            String?             @map("channel_id")
+  channelTitle         String?             @map("channel_title")
+  thumbnailUrl         String?             @map("thumbnail_url")
+  scheduledStartTime   DateTime?           @map("scheduled_start_time")
+  actualStartTime      DateTime?           @map("actual_start_time")
+  actualEndTime        DateTime?           @map("actual_end_time")
+  liveBroadcastContent String?             @map("live_broadcast_content")
+  duration             String?
+  publishStatus        PublishableStatus   @default(DRAFT) @map("publish_status")
+  confidenceLevel      DataConfidenceLevel @default(ESTIMATED) @map("confidence_level")
+  sourceType           AdminSourceType     @default(MANUAL) @map("source_type")
+  confidenceScore      Int                 @default(0) @map("confidence_score")
+  confidenceNotes      String?             @map("confidence_notes")
+  isApproved           Boolean             @default(false) @map("is_approved")
+  approvedById         String?             @map("approved_by_id")
+  approvedAt           DateTime?           @map("approved_at")
+  externalRawJson      Json?               @map("external_raw_json")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  launch     Launch     @relation(fields: [launchId], references: [id], onDelete: Cascade)
+  approvedBy AdminUser? @relation("VideoApprover", fields: [approvedById], references: [id])
+
+  @@unique([provider, providerVideoId])
+  @@index([launchId])
+  @@index([publishStatus])
+  @@index([isApproved])
+  @@index([channelId])
+  @@map("video_records")
 }
 
 model ExternalSyncRun {

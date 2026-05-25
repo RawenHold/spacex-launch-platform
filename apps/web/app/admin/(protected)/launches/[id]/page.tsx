@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { ListChecks, Save } from "lucide-react"
+import { ListChecks, Save, Video } from "lucide-react"
 
 import { AdminApprovalBadge } from "@/components/admin/admin-approval-badge"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { transitionApprovalAction, updateLaunchAction } from "@/lib/admin/actions"
 import { getAdminRepository } from "@/lib/admin/repository"
+import { listAdminVideoRecords } from "@/lib/server/youtube/service"
 
 const launchStatuses = [
   "draft",
@@ -42,7 +43,10 @@ export default async function AdminLaunchDetailPage({
 }) {
   const { id } = await params
   const repository = getAdminRepository()
-  const launch = await repository.getLaunchById(id)
+  const [launch, videos] = await Promise.all([
+    repository.getLaunchById(id),
+    listAdminVideoRecords({ launchId: id }),
+  ])
 
   if (!launch) {
     notFound()
@@ -63,6 +67,10 @@ export default async function AdminLaunchDetailPage({
             <Link href={`/admin/launches/${launch.id}/timeline`} className={buttonVariants({ variant: "outline", size: "sm" })}>
               <ListChecks data-icon aria-hidden="true" />
               Timeline
+            </Link>
+            <Link href={`/admin/launches/${launch.id}/videos`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Video data-icon aria-hidden="true" />
+              Videos
             </Link>
           </>
         }
@@ -146,6 +154,43 @@ export default async function AdminLaunchDetailPage({
               <Badge variant="warning">no sources attached</Badge>
             )}
           </div>
+        </div>
+      </section>
+
+      <section className="mission-panel rounded-lg p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="mission-eyebrow">YouTube review</p>
+            <h2 className="mt-2 text-xl font-black uppercase tracking-[0.08em]">
+              Related video records
+            </h2>
+          </div>
+          <Link href={`/admin/launches/${launch.id}/videos`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+            Manage videos
+          </Link>
+        </div>
+        <div className="mt-5 grid gap-3">
+          {videos.length > 0 ? (
+            videos.slice(0, 4).map((video) => (
+              <article key={video.id} className="rounded-lg border border-border/70 bg-card/60 p-3">
+                <div className="flex flex-wrap gap-2">
+                  <AdminApprovalBadge status={video.publishStatus} />
+                  <AdminSourceConfidenceBadge confidenceLevel={video.confidenceLevel} />
+                  <Badge variant={video.isApproved ? "success" : "warning"}>
+                    {video.isApproved ? "approved" : "candidate"}
+                  </Badge>
+                </div>
+                <p className="mt-3 font-semibold text-foreground">{video.title.en}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {video.providerVideoId ?? "no video id"} · score {video.confidenceScore}
+                </p>
+              </article>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No YouTube candidates yet. Use the video review page to discover or add one manually.
+            </p>
+          )}
         </div>
       </section>
     </div>

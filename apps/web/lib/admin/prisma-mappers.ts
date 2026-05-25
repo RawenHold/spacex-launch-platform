@@ -24,6 +24,7 @@ import type {
   SourceConflictStatus as PrismaConflictStatus,
   SourceKind as PrismaSourceKind,
   SourceRecord as DbSourceRecord,
+  VideoRecord as DbVideoRecord,
 } from "@prisma/client"
 
 import type {
@@ -34,6 +35,7 @@ import type {
   AdminSourceRecord,
   AdminTimelineEvent,
   AdminUser,
+  AdminVideoRecord,
   AIDraft,
   ApprovalRecord,
   PublishableStatus,
@@ -45,6 +47,9 @@ type LaunchWithSources = DbLaunch & { sourceRecords: DbSourceRecord[] }
 type ArticleWithSources = DbArticle & { sources: DbSourceRecord[] }
 type NewsWithSources = DbNewsItem & { sources: DbSourceRecord[] }
 type FAQWithSources = DbFAQItem & { sources: DbSourceRecord[] }
+type VideoWithLaunch = DbVideoRecord & {
+  launch?: { missionName: Prisma.JsonValue } | null
+}
 
 function toUpperSnake(value: string): string {
   return value.toUpperCase()
@@ -270,6 +275,38 @@ export function newsFromDb(item: NewsWithSources): AdminNewsItem {
     publishStatus: fromPrismaPublishable(item.publishStatus),
     approval: approvalSnapshot(item.publishStatus),
     updatedAt: item.updatedAt.toISOString(),
+  }
+}
+
+export function videoFromDb(video: VideoWithLaunch): AdminVideoRecord {
+  return {
+    id: video.id,
+    launchId: video.launchId,
+    launchName: video.launch ? localizedFromJson(video.launch.missionName).en : undefined,
+    provider: fromUpperSnake(video.provider) as AdminVideoRecord["provider"],
+    providerVideoId: video.providerVideoId ?? undefined,
+    url: video.url ?? undefined,
+    title: localizedFromJson(video.title),
+    description: localizedFromJson(video.description),
+    channelId: video.channelId ?? undefined,
+    channelTitle: video.channelTitle ?? undefined,
+    thumbnailUrl: video.thumbnailUrl ?? undefined,
+    scheduledStartTime: video.scheduledStartTime?.toISOString(),
+    actualStartTime: video.actualStartTime?.toISOString(),
+    actualEndTime: video.actualEndTime?.toISOString(),
+    liveBroadcastContent: video.liveBroadcastContent ?? undefined,
+    duration: video.duration ?? undefined,
+    publishStatus: fromPrismaPublishable(video.publishStatus),
+    confidenceLevel: fromPrismaConfidence(video.confidenceLevel),
+    sourceType: fromUpperSnake(video.sourceType) as AdminVideoRecord["sourceType"],
+    confidenceScore: video.confidenceScore,
+    confidenceNotes: video.confidenceNotes ?? undefined,
+    isApproved: video.isApproved,
+    approvedById: video.approvedById ?? undefined,
+    approvedAt: video.approvedAt?.toISOString(),
+    externalRawJson: video.externalRawJson ?? undefined,
+    createdAt: video.createdAt.toISOString(),
+    updatedAt: video.updatedAt.toISOString(),
   }
 }
 

@@ -34,6 +34,7 @@ type LaunchWithRelations = Prisma.LaunchGetPayload<{
   include: {
     sourceRecords: true
     timelineEvents: true
+    videoRecords: true
   }
 }>
 
@@ -161,21 +162,34 @@ function mapTimelineEvent(event: LaunchWithRelations["timelineEvents"][number]):
   }
 }
 
-function videoFromLaunch(launch: LaunchWithRelations): VideoRecord[] {
-  if (!launch.youtubeUrlOrVideoId) return []
+function publicVideoState(video: LaunchWithRelations["videoRecords"][number]): VideoRecord["state"] {
+  if (video.liveBroadcastContent === "live") return "live"
+  if (video.liveBroadcastContent === "upcoming") return "upcoming"
+  if (video.actualEndTime || video.liveBroadcastContent === "none") return "completed"
+  return "unavailable"
+}
 
-  return [
-    {
-      id: `${launch.id}-youtube`,
+function videosFromLaunch(launch: LaunchWithRelations): VideoRecord[] {
+  return launch.videoRecords
+    .filter(
+      (video) =>
+        video.isApproved &&
+        (video.publishStatus === "APPROVED" || video.publishStatus === "PUBLISHED")
+    )
+    .map((video) => ({
+      id: video.id,
       provider: "youtube",
-      title: launch.missionName ? localizedFromJson(launch.missionName) : { en: "Mission stream", ru: "Трансляция миссии" },
-      videoId: extractYouTubeId(launch.youtubeUrlOrVideoId),
-      url: launch.youtubeUrlOrVideoId,
-      state: launch.status === "LIVE" ? "live" : launch.launchDateTimeUtc.getTime() < Date.now() ? "completed" : "upcoming",
-      sourceLabel: { en: "Admin attached stream", ru: "Трансляция, добавленная админом" },
+      title: localizedFromJson(video.title),
+      providerVideoId: video.providerVideoId ?? undefined,
+      videoId: video.providerVideoId ?? extractYouTubeId(video.url ?? undefined),
+      url: video.url ?? undefined,
+      state: publicVideoState(video),
+      sourceLabel: {
+        en: video.channelTitle ?? "Approved YouTube video",
+        ru: video.channelTitle ?? "Approved YouTube video",
+      },
       isPlaceholder: false,
-    },
-  ]
+    }))
 }
 
 function launchFromDb(launch: LaunchWithRelations): Launch {
@@ -204,7 +218,7 @@ function launchFromDb(launch: LaunchWithRelations): Launch {
     trajectory: localizedFromJson(launch.trajectory),
     payload: localizedFromJson(launch.payload),
     officialLink: launch.officialUrl ?? undefined,
-    videos: videoFromLaunch(launch),
+    videos: videosFromLaunch(launch),
     timeline: launch.timelineEvents
       .sort((a, b) => a.sortOrder - b.sortOrder || a.relativeTime.localeCompare(b.relativeTime))
       .map(mapTimelineEvent),
@@ -287,7 +301,7 @@ export async function getPublishedUpcomingLaunches() {
           ...publishedLaunchWhere,
           launchDateTimeUtc: { gte: now },
         },
-        include: { sourceRecords: true, timelineEvents: true },
+        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
         orderBy: { launchDateTimeUtc: "asc" },
       })
 
@@ -307,7 +321,7 @@ export async function getPublishedPastLaunches() {
           ...publishedLaunchWhere,
           launchDateTimeUtc: { lt: now },
         },
-        include: { sourceRecords: true, timelineEvents: true },
+        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
         orderBy: { launchDateTimeUtc: "desc" },
       })
 
@@ -324,7 +338,7 @@ export async function getPublishedLaunchBySlug(slug: string): Promise<PublicRepo
         ...publishedLaunchWhere,
         slug,
       },
-      include: { sourceRecords: true, timelineEvents: true },
+      include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
     })
 
     if (launch) {
@@ -356,7 +370,7 @@ export async function getFeaturedPublishedLaunch(): Promise<PublicRepositoryResu
   try {
     const launch = await prisma.launch.findFirst({
       where: publishedLaunchWhere,
-      include: { sourceRecords: true, timelineEvents: true },
+      include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
       orderBy: [{ isFeatured: "desc" }, { launchDateTimeUtc: "asc" }],
     })
 
@@ -424,18 +438,18 @@ export async function getPublicHomeData() {
     const [featured, upcoming, past, articles, news, faqs] = await Promise.all([
       prisma.launch.findFirst({
         where: publishedLaunchWhere,
-        include: { sourceRecords: true, timelineEvents: true },
+        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
         orderBy: [{ isFeatured: "desc" }, { launchDateTimeUtc: "asc" }],
       }),
       prisma.launch.findMany({
         where: { ...publishedLaunchWhere, launchDateTimeUtc: { gte: new Date() } },
-        include: { sourceRecords: true, timelineEvents: true },
+        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
         orderBy: { launchDateTimeUtc: "asc" },
         take: 3,
       }),
       prisma.launch.findMany({
         where: { ...publishedLaunchWhere, launchDateTimeUtc: { lt: new Date() } },
-        include: { sourceRecords: true, timelineEvents: true },
+        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
         orderBy: { launchDateTimeUtc: "desc" },
         take: 3,
       }),
