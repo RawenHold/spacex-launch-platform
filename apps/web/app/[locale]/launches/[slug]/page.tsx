@@ -6,6 +6,7 @@ import { ExternalLinkIcon } from "lucide-react"
 import { ConfidenceBadge } from "@/components/launch/confidence-badge"
 import { Countdown } from "@/components/launch/countdown"
 import { LaunchAnimation2D } from "@/components/launch/launch-animation-2d"
+import { LiveMissionPanel } from "@/components/launch/live-mission-panel"
 import { MissionTimeline } from "@/components/launch/mission-timeline"
 import { SourceList } from "@/components/launch/source-list"
 import { StatusBadge } from "@/components/launch/status-badge"
@@ -115,6 +116,7 @@ export default async function LaunchDetailPage({
 
   const activeIndex = getActiveTimelineIndex(launch.netUtc, launch.timeline.length)
   const video = launch.videos[0]
+  const initialMissionTimeSeconds = launch.liveMission?.currentMissionTimeSeconds ?? 0
 
   return (
     <>
@@ -163,9 +165,18 @@ export default async function LaunchDetailPage({
             title={dictionary.detail.animationTitle}
             description={dictionary.detail.animationDescription}
             vehicle={launch.category === "starship" ? "starship" : "falcon"}
-            demo
+            missionTimeSeconds={initialMissionTimeSeconds}
+            timelineEvents={launch.timeline}
+            missionMode={launch.liveMission?.mode ?? "planned"}
+            activePhase={launch.liveMission?.currentPhase}
+            replayMode={launch.liveMission?.mode === "replay" || launch.liveMission?.mode === "completed"}
           />
         </div>
+      </section>
+
+      <section className="mission-container grid gap-6 py-14 xl:grid-cols-[1.1fr_0.9fr]">
+        <LiveMissionPanel launch={launch} locale={locale} />
+        <YouTubeEmbed video={video} labels={dictionary.youtube} />
       </section>
 
       <section className="mission-container grid gap-6 py-14 lg:grid-cols-[0.9fr_1.1fr]">
@@ -212,7 +223,6 @@ export default async function LaunchDetailPage({
         </div>
 
         <div className="flex flex-col gap-6">
-          <YouTubeEmbed video={video} labels={dictionary.youtube} />
           <Card>
             <CardHeader>
               <CardTitle>{dictionary.home.timelinePreview}</CardTitle>

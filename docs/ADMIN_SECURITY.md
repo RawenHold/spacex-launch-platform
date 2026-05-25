@@ -198,6 +198,26 @@ AI draft generation is available from admin pages only. The implementation is in
 
 Audit actions include `ai_generate_requested`, `ai_generate_succeeded`, `ai_generate_failed`, `ai_draft_approved`, `ai_draft_rejected`, `ai_draft_merged`, and `ai_draft_archived`.
 
+## Live Mission Control Security
+
+Manual live control is available at:
+
+```text
+/admin/live-control
+```
+
+Controls:
+
+- protected server-side by Auth.js admin session checks
+- mutation actions require the `admin` role
+- actions use the admin write rate limiter
+- every state change writes `AuditLog`
+- timeline confirmations write `LiveMissionEventLog`
+- public banners are explicit RU/EN fields and can be cleared
+- live mode does not publish unapproved content or expose admin controls publicly
+
+The public launch page labels live data as planned timeline, admin confirmed, estimated, replay, delayed, or scrubbed. It must not use "official telemetry" or "real-time telemetry" unless a future official telemetry source is integrated.
+
 ## Secret Handling
 
 Never commit real secrets. Required secrets are documented in:

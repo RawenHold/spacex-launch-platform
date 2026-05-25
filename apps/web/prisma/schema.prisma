@@ -73,6 +73,32 @@ enum AdminTimelineEventStatus {
   FAILED    @map("failed")
 }
 
+enum LiveMissionMode {
+  PLANNED   @map("planned")
+  LIVE      @map("live")
+  REPLAY    @map("replay")
+  PAUSED    @map("paused")
+  COMPLETED @map("completed")
+  SCRUBBED  @map("scrubbed")
+  DELAYED   @map("delayed")
+}
+
+enum LiveMissionStreamStatus {
+  UNAVAILABLE @map("unavailable")
+  SCHEDULED   @map("scheduled")
+  LIVE        @map("live")
+  ENDED       @map("ended")
+  REPLAY      @map("replay")
+}
+
+enum LiveMissionSourceType {
+  PLANNED         @map("planned")
+  ADMIN_CONFIRMED @map("admin_confirmed")
+  ESTIMATED       @map("estimated")
+  OFFICIAL_SOURCE @map("official_source")
+  MANUAL_OVERRIDE @map("manual_override")
+}
+
 enum SourceKind {
   OFFICIAL_SPACEX  @map("official_spacex")
   OFFICIAL_YOUTUBE @map("official_youtube")
@@ -214,6 +240,8 @@ model AdminUser {
   reviewedAIDrafts AIDraft[]         @relation("AIDraftReviewer")
   externalSyncRuns ExternalSyncRun[] @relation("ExternalSyncRequester")
   approvedVideos   VideoRecord[]     @relation("VideoApprover")
+  liveMissionStates LiveMissionState[] @relation("LiveMissionUpdater")
+  liveMissionEventLogs LiveMissionEventLog[] @relation("LiveMissionActor")
 
   @@map("admin_users")
 }
@@ -259,6 +287,8 @@ model Launch {
   timelineEvents MissionTimelineEvent[]
   sourceRecords  SourceRecord[]
   videoRecords   VideoRecord[]
+  liveMissionState LiveMissionState?
+  liveMissionEventLogs LiveMissionEventLog[]
 
   @@index([status])
   @@index([publishStatus])
@@ -266,6 +296,59 @@ model Launch {
   @@index([externalProvider, externalId])
   @@index([importBatchId])
   @@map("launches")
+}
+
+model LiveMissionState {
+  id                        String                  @id @default(cuid())
+  launchId                  String                  @unique @map("launch_id")
+  mode                      LiveMissionMode         @default(PLANNED)
+  countdownTargetUtc        DateTime                @map("countdown_target_utc")
+  t0Utc                     DateTime?               @map("t0_utc")
+  currentMissionTimeSeconds Int?                    @map("current_mission_time_seconds")
+  activeTimelineEventId     String?                 @map("active_timeline_event_id")
+  currentPhase              String?                 @map("current_phase")
+  animationProgress         Int                     @default(0) @map("animation_progress")
+  streamStatus              LiveMissionStreamStatus @default(UNAVAILABLE) @map("stream_status")
+  manualOverrideEnabled     Boolean                 @default(false) @map("manual_override_enabled")
+  publicBannerRu            String?                 @map("public_banner_ru")
+  publicBannerEn            String?                 @map("public_banner_en")
+  internalNotes             String?                 @map("internal_notes")
+  lastUpdatedById           String?                 @map("last_updated_by_id")
+  createdAt                 DateTime                @default(now()) @map("created_at")
+  updatedAt                 DateTime                @updatedAt @map("updated_at")
+
+  launch              Launch                @relation(fields: [launchId], references: [id], onDelete: Cascade)
+  activeTimelineEvent MissionTimelineEvent? @relation("LiveMissionActiveEvent", fields: [activeTimelineEventId], references: [id], onDelete: SetNull)
+  lastUpdatedBy       AdminUser?            @relation("LiveMissionUpdater", fields: [lastUpdatedById], references: [id], onDelete: SetNull)
+
+  @@index([mode])
+  @@index([streamStatus])
+  @@index([activeTimelineEventId])
+  @@map("live_mission_states")
+}
+
+model LiveMissionEventLog {
+  id                 String                  @id @default(cuid())
+  launchId           String                  @map("launch_id")
+  timelineEventId    String?                 @map("timeline_event_id")
+  eventType          String                  @map("event_type")
+  previousStatus     AdminTimelineEventStatus? @map("previous_status")
+  newStatus          AdminTimelineEventStatus? @map("new_status")
+  missionTimeSeconds Int?                    @map("mission_time_seconds")
+  noteRu             String?                 @map("note_ru")
+  noteEn             String?                 @map("note_en")
+  sourceType         LiveMissionSourceType   @default(PLANNED) @map("source_type")
+  actorId            String?                 @map("actor_id")
+  createdAt          DateTime                @default(now()) @map("created_at")
+
+  launch        Launch                @relation(fields: [launchId], references: [id], onDelete: Cascade)
+  timelineEvent MissionTimelineEvent? @relation(fields: [timelineEventId], references: [id], onDelete: SetNull)
+  actor         AdminUser?            @relation("LiveMissionActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([launchId, createdAt])
+  @@index([timelineEventId])
+  @@index([sourceType])
+  @@map("live_mission_event_logs")
 }
 
 model VideoRecord {
@@ -367,6 +450,8 @@ model MissionTimelineEvent {
   updatedAt       DateTime                 @updatedAt @map("updated_at")
 
   launch Launch @relation(fields: [launchId], references: [id], onDelete: Cascade)
+  activeLiveStates LiveMissionState[] @relation("LiveMissionActiveEvent")
+  liveMissionEventLogs LiveMissionEventLog[]
 
   @@index([launchId, sortOrder])
   @@map("mission_timeline_events")

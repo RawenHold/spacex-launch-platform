@@ -71,6 +71,29 @@ export type TimelineEventStatus =
 
 export type VideoState = "upcoming" | "live" | "completed" | "unavailable"
 
+export type LiveMissionMode =
+  | "planned"
+  | "live"
+  | "replay"
+  | "paused"
+  | "completed"
+  | "scrubbed"
+  | "delayed"
+
+export type LiveMissionStreamStatus =
+  | "unavailable"
+  | "scheduled"
+  | "live"
+  | "ended"
+  | "replay"
+
+export type LiveMissionSourceType =
+  | "planned"
+  | "admin_confirmed"
+  | "estimated"
+  | "official_source"
+  | "manual_override"
+
 export interface SourceRecord {
   id: string
   kind: SourceKind
@@ -105,6 +128,34 @@ export interface MissionTimelineEvent {
   confidenceLevel: DataConfidenceLevel
 }
 
+export interface LiveMissionEventLog {
+  id: string
+  timelineEventId?: string
+  eventType: string
+  previousStatus?: TimelineEventStatus
+  newStatus?: TimelineEventStatus
+  missionTimeSeconds?: number
+  note?: LocalizedText
+  sourceType: LiveMissionSourceType
+  createdAt: string
+}
+
+export interface LiveMissionState {
+  id: string
+  mode: LiveMissionMode
+  countdownTargetUtc: string
+  t0Utc?: string
+  currentMissionTimeSeconds?: number
+  activeTimelineEventId?: string
+  currentPhase?: string
+  animationProgress: number
+  streamStatus: LiveMissionStreamStatus
+  manualOverrideEnabled: boolean
+  publicBanner?: LocalizedText
+  updatedAt: string
+  eventLogs: LiveMissionEventLog[]
+}
+
 export interface Launch {
   id: string
   slug: string
@@ -134,6 +185,7 @@ export interface Launch {
   officialLink?: string
   videos: VideoRecord[]
   timeline: MissionTimelineEvent[]
+  liveMission?: LiveMissionState
   sourceRecords: SourceRecord[]
   confidenceLevel: DataConfidenceLevel
   isMock: boolean

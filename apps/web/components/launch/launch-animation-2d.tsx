@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react"
 
+import { computeAnimationProgress } from "@/lib/mission-time/animation-progress"
 import { cn } from "@/lib/utils"
+import type { LiveMissionMode, MissionTimelineEvent } from "@/types/space"
 
 function useReducedMotion() {
   return useSyncExternalStore(
@@ -28,6 +30,11 @@ export function LaunchAnimation2D({
   vehicle = "falcon",
   demo = false,
   progress = 42,
+  missionTimeSeconds,
+  timelineEvents = [],
+  missionMode = "planned",
+  activePhase,
+  replayMode = false,
   className,
 }: {
   title: string
@@ -35,10 +42,23 @@ export function LaunchAnimation2D({
   vehicle?: "falcon" | "starship"
   demo?: boolean
   progress?: number
+  missionTimeSeconds?: number
+  timelineEvents?: MissionTimelineEvent[]
+  missionMode?: LiveMissionMode
+  activePhase?: string
+  replayMode?: boolean
   className?: string
 }) {
   const reducedMotion = useReducedMotion()
-  const [demoProgress, setDemoProgress] = useState(progress)
+  const computedAnimation = useMemo(() => {
+    if (typeof missionTimeSeconds !== "number") {
+      return { progressPercent: progress, phase: activePhase ?? "demo" }
+    }
+
+    return computeAnimationProgress(timelineEvents, missionTimeSeconds, missionMode)
+  }, [activePhase, missionMode, missionTimeSeconds, progress, timelineEvents])
+  const computedProgress = computedAnimation.progressPercent
+  const [demoProgress, setDemoProgress] = useState(computedProgress)
 
   useEffect(() => {
     if (!demo || reducedMotion) {
@@ -50,7 +70,8 @@ export function LaunchAnimation2D({
     return () => window.clearInterval(timer)
   }, [demo, reducedMotion])
 
-  const phaseProgress = reducedMotion ? progress : demo ? demoProgress : progress
+  const phaseProgress = reducedMotion ? computedProgress : demo ? demoProgress : computedProgress
+  const phaseLabel = activePhase ?? computedAnimation.phase
 
   const rocketTransform = useMemo(() => {
     const y = 210 - phaseProgress * 2.4
@@ -82,7 +103,7 @@ export function LaunchAnimation2D({
           </div>
           <div className="rounded-lg border border-border/70 bg-background/50 p-4">
             <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-              <span>Demo progress</span>
+              <span>{replayMode ? "Replay profile" : demo ? "Demo progress" : "Mission profile"}</span>
               <span>{Math.round(phaseProgress)}%</span>
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -91,6 +112,9 @@ export function LaunchAnimation2D({
                 style={{ width: `${phaseProgress}%` }}
               />
             </div>
+            <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              Phase: {String(phaseLabel).replaceAll("_", " ")}
+            </p>
           </div>
         </div>
 

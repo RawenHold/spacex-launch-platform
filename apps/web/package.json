@@ -19,7 +19,8 @@
     "sync:launch-library": "tsx scripts/sync-launch-library.ts --live",
     "youtube:dry-run": "tsx scripts/youtube-discovery.ts --dry-run",
     "youtube:discover": "tsx scripts/youtube-discovery.ts --live",
-    "ai:dry-run": "tsx scripts/ai-dry-run.ts"
+    "ai:dry-run": "tsx scripts/ai-dry-run.ts",
+    "mission:dry-run": "tsx scripts/mission-dry-run.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

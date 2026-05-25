@@ -30,12 +30,19 @@ export interface PublicRepositoryResult<T> {
   error?: string
 }
 
+const publicLaunchInclude = {
+  sourceRecords: true,
+  timelineEvents: true,
+  videoRecords: true,
+  liveMissionState: true,
+  liveMissionEventLogs: {
+    orderBy: { createdAt: "desc" },
+    take: 30,
+  },
+} satisfies Prisma.LaunchInclude
+
 type LaunchWithRelations = Prisma.LaunchGetPayload<{
-  include: {
-    sourceRecords: true
-    timelineEvents: true
-    videoRecords: true
-  }
+  include: typeof publicLaunchInclude
 }>
 
 type ArticleWithRelations = Prisma.ArticleGetPayload<{
@@ -169,6 +176,61 @@ function publicVideoState(video: LaunchWithRelations["videoRecords"][number]): V
   return "unavailable"
 }
 
+function liveMissionFromDb(launch: LaunchWithRelations): Launch["liveMission"] {
+  const state = launch.liveMissionState
+  if (!state) return undefined
+
+  return {
+    id: state.id,
+    mode: state.mode.toLowerCase() as NonNullable<Launch["liveMission"]>["mode"],
+    countdownTargetUtc: state.countdownTargetUtc.toISOString(),
+    t0Utc: state.t0Utc?.toISOString(),
+    currentMissionTimeSeconds: state.currentMissionTimeSeconds ?? undefined,
+    activeTimelineEventId: state.activeTimelineEventId ?? undefined,
+    currentPhase: state.currentPhase ?? undefined,
+    animationProgress: state.animationProgress,
+    streamStatus: state.streamStatus.toLowerCase() as NonNullable<
+      Launch["liveMission"]
+    >["streamStatus"],
+    manualOverrideEnabled: state.manualOverrideEnabled,
+    publicBanner:
+      state.publicBannerEn || state.publicBannerRu
+        ? {
+            en: state.publicBannerEn ?? state.publicBannerRu ?? "",
+            ru: state.publicBannerRu ?? state.publicBannerEn ?? "",
+          }
+        : undefined,
+    updatedAt: state.updatedAt.toISOString(),
+    eventLogs: launch.liveMissionEventLogs.map((entry) => ({
+      id: entry.id,
+      timelineEventId: entry.timelineEventId ?? undefined,
+      eventType: entry.eventType,
+      previousStatus: entry.previousStatus
+        ? (entry.previousStatus.toLowerCase() as NonNullable<
+            Launch["liveMission"]
+          >["eventLogs"][number]["previousStatus"])
+        : undefined,
+      newStatus: entry.newStatus
+        ? (entry.newStatus.toLowerCase() as NonNullable<
+            Launch["liveMission"]
+          >["eventLogs"][number]["newStatus"])
+        : undefined,
+      missionTimeSeconds: entry.missionTimeSeconds ?? undefined,
+      note:
+        entry.noteEn || entry.noteRu
+          ? {
+              en: entry.noteEn ?? entry.noteRu ?? "",
+              ru: entry.noteRu ?? entry.noteEn ?? "",
+            }
+          : undefined,
+      sourceType: entry.sourceType.toLowerCase() as NonNullable<
+        Launch["liveMission"]
+      >["eventLogs"][number]["sourceType"],
+      createdAt: entry.createdAt.toISOString(),
+    })),
+  }
+}
+
 function videosFromLaunch(launch: LaunchWithRelations): VideoRecord[] {
   return launch.videoRecords
     .filter(
@@ -222,6 +284,7 @@ function launchFromDb(launch: LaunchWithRelations): Launch {
     timeline: launch.timelineEvents
       .sort((a, b) => a.sortOrder - b.sortOrder || a.relativeTime.localeCompare(b.relativeTime))
       .map(mapTimelineEvent),
+    liveMission: liveMissionFromDb(launch),
     sourceRecords: launch.sourceRecords.map((source) => {
       const mapped = sourceFromDb(source)
       return {
@@ -301,7 +364,7 @@ export async function getPublishedUpcomingLaunches() {
           ...publishedLaunchWhere,
           launchDateTimeUtc: { gte: now },
         },
-        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
+        include: publicLaunchInclude,
         orderBy: { launchDateTimeUtc: "asc" },
       })
 
@@ -321,7 +384,7 @@ export async function getPublishedPastLaunches() {
           ...publishedLaunchWhere,
           launchDateTimeUtc: { lt: now },
         },
-        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
+        include: publicLaunchInclude,
         orderBy: { launchDateTimeUtc: "desc" },
       })
 
@@ -338,7 +401,7 @@ export async function getPublishedLaunchBySlug(slug: string): Promise<PublicRepo
         ...publishedLaunchWhere,
         slug,
       },
-      include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
+      include: publicLaunchInclude,
     })
 
     if (launch) {
@@ -370,7 +433,7 @@ export async function getFeaturedPublishedLaunch(): Promise<PublicRepositoryResu
   try {
     const launch = await prisma.launch.findFirst({
       where: publishedLaunchWhere,
-      include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
+      include: publicLaunchInclude,
       orderBy: [{ isFeatured: "desc" }, { launchDateTimeUtc: "asc" }],
     })
 
@@ -438,18 +501,18 @@ export async function getPublicHomeData() {
     const [featured, upcoming, past, articles, news, faqs] = await Promise.all([
       prisma.launch.findFirst({
         where: publishedLaunchWhere,
-        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
+        include: publicLaunchInclude,
         orderBy: [{ isFeatured: "desc" }, { launchDateTimeUtc: "asc" }],
       }),
       prisma.launch.findMany({
         where: { ...publishedLaunchWhere, launchDateTimeUtc: { gte: new Date() } },
-        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
+        include: publicLaunchInclude,
         orderBy: { launchDateTimeUtc: "asc" },
         take: 3,
       }),
       prisma.launch.findMany({
         where: { ...publishedLaunchWhere, launchDateTimeUtc: { lt: new Date() } },
-        include: { sourceRecords: true, timelineEvents: true, videoRecords: true },
+        include: publicLaunchInclude,
         orderBy: { launchDateTimeUtc: "desc" },
         take: 3,
       }),

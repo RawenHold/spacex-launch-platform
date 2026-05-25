@@ -104,6 +104,22 @@ Stage 8 adds OpenAI-assisted draft generation without changing the publication m
 
 See `docs/AI_DRAFTS.md` for the operational workflow.
 
+## Live Mission Mode Architecture
+
+Stage 9 adds Live Mission Mode without integrating official real-time telemetry.
+
+- Persistent state lives in `LiveMissionState`.
+- Durable event history lives in `LiveMissionEventLog`.
+- Mission clock utilities live under `apps/web/lib/mission-time`.
+- Public launch detail pages combine approved YouTube embed, countdown/T+ clock, planned timeline progress, safety labels, replay controls, and the 2.5D launch animation.
+- `/admin/live-control` provides manual state controls for admins only.
+- Timeline event confirmations update `MissionTimelineEvent.status` and append live event logs.
+- Public pages label states as planned timeline, admin confirmed, estimated, delayed, scrubbed, stream live/scheduled/ended, or replay.
+
+The system must never describe this mode as official SpaceX telemetry until an official telemetry source is integrated and verified.
+
+See `docs/LIVE_MISSION_MODE.md` for implementation and operator details.
+
 ## MVP Scope
 
 MVP v1 includes:

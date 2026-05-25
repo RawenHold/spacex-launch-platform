@@ -102,6 +102,7 @@ npm run db:seed:dry-run
 npm run sync:dry-run
 npm run youtube:dry-run
 npm run ai:dry-run
+npm run mission:dry-run
 npm run lint
 npm run typecheck
 npm run build

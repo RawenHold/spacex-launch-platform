@@ -63,6 +63,29 @@ export type AdminTimelineEventStatus =
   | "skipped"
   | "failed"
 
+export type AdminLiveMissionMode =
+  | "planned"
+  | "live"
+  | "replay"
+  | "paused"
+  | "completed"
+  | "scrubbed"
+  | "delayed"
+
+export type AdminLiveMissionStreamStatus =
+  | "unavailable"
+  | "scheduled"
+  | "live"
+  | "ended"
+  | "replay"
+
+export type AdminLiveMissionSourceType =
+  | "planned"
+  | "admin_confirmed"
+  | "estimated"
+  | "official_source"
+  | "manual_override"
+
 export type AdminSourceType = "official" | "api" | "secondary" | "manual"
 export type AdminTrustLevel = "primary" | "secondary" | "low"
 
@@ -248,6 +271,39 @@ export interface AdminTimelineEvent
   sortOrder: number
   approval: ApprovalRecord
   aiGenerated: boolean
+}
+
+export interface AdminLiveMissionEventLog {
+  id: string
+  launchId: string
+  timelineEventId?: string
+  eventType: string
+  previousStatus?: AdminTimelineEventStatus
+  newStatus?: AdminTimelineEventStatus
+  missionTimeSeconds?: number
+  note?: LocalizedText
+  sourceType: AdminLiveMissionSourceType
+  actorName?: string
+  actorEmail?: string
+  createdAt: string
+}
+
+export interface AdminLiveMissionState {
+  id: string
+  launchId: string
+  mode: AdminLiveMissionMode
+  countdownTargetUtc: string
+  t0Utc?: string
+  currentMissionTimeSeconds?: number
+  activeTimelineEventId?: string
+  currentPhase?: string
+  animationProgress: number
+  streamStatus: AdminLiveMissionStreamStatus
+  manualOverrideEnabled: boolean
+  publicBanner?: LocalizedText
+  internalNotes?: string
+  lastUpdatedById?: string
+  updatedAt: string
 }
 
 export interface AIDraft {

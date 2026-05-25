@@ -13,6 +13,17 @@ import {
   discoverAndStoreYouTubeVideos,
   updateVideoRecordStatus,
 } from "@/lib/server/youtube/service"
+import {
+  clearLiveMissionBanner,
+  completeLiveMission,
+  initializeLiveMissionState,
+  setLiveMissionActiveEvent,
+  updateLiveMissionBanner,
+  updateLiveMissionMode,
+  updateLiveMissionStreamStatus,
+  updateLiveMissionTiming,
+  updateLiveTimelineEventStatus,
+} from "@/lib/server/live-mission/service"
 import type {
   AdminLaunchRecord,
   AdminRole,
@@ -114,6 +125,24 @@ const timelineTypeSchema = z.enum([
 ])
 
 const timelineStatusSchema = z.enum(["planned", "confirmed", "estimated", "skipped", "failed"])
+
+const liveMissionModeSchema = z.enum([
+  "planned",
+  "live",
+  "replay",
+  "paused",
+  "completed",
+  "scrubbed",
+  "delayed",
+])
+
+const liveMissionStreamStatusSchema = z.enum([
+  "unavailable",
+  "scheduled",
+  "live",
+  "ended",
+  "replay",
+])
 
 async function requireWritePermission(permissions: Parameters<typeof requireAdminPermission>[0]) {
   const user = await requireAdminPermission(permissions)
@@ -857,6 +886,168 @@ export async function updateVideoStatusAction(formData: FormData) {
     `/admin/launches/${parsed.launchId}/videos`,
     "/admin/audit",
   ])
+}
+
+async function requireLiveControlRole() {
+  const user = await requireAdminRole(["admin"])
+  await enforceAdminWriteRateLimit(user.id)
+  return user
+}
+
+function revalidateLiveMissionAdmin(launchId: string) {
+  revalidateAdmin([
+    "/admin",
+    "/admin/live-control",
+    `/admin/launches/${launchId}`,
+    `/admin/launches/${launchId}/timeline`,
+    "/admin/audit",
+  ])
+}
+
+export async function initializeLiveMissionAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const launchId = z.string().min(1).parse(formData.get("launchId"))
+
+  await initializeLiveMissionState(launchId, user.id)
+  revalidateLiveMissionAdmin(launchId)
+}
+
+export async function updateLiveMissionModeAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const parsed = z
+    .object({
+      launchId: z.string().min(1),
+      mode: liveMissionModeSchema,
+    })
+    .parse({
+      launchId: formData.get("launchId"),
+      mode: formData.get("mode"),
+    })
+
+  await updateLiveMissionMode(parsed.launchId, parsed.mode, user.id)
+  revalidateLiveMissionAdmin(parsed.launchId)
+}
+
+export async function updateLiveMissionTimingAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const parsed = z
+    .object({
+      launchId: z.string().min(1),
+      countdownTargetUtc: validDateSchema,
+      t0Utc: validDateSchema.optional(),
+      internalNotes: z.string().trim().optional(),
+    })
+    .parse({
+      launchId: formData.get("launchId"),
+      countdownTargetUtc: formData.get("countdownTargetUtc"),
+      t0Utc: String(formData.get("t0Utc") ?? "") || undefined,
+      internalNotes: String(formData.get("internalNotes") ?? "") || undefined,
+    })
+
+  await updateLiveMissionTiming({
+    launchId: parsed.launchId,
+    countdownTargetUtc: parsed.countdownTargetUtc,
+    t0Utc: parsed.t0Utc,
+    internalNotes: parsed.internalNotes,
+    actorId: user.id,
+  })
+  revalidateLiveMissionAdmin(parsed.launchId)
+}
+
+export async function updateLiveMissionStreamStatusAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const parsed = z
+    .object({
+      launchId: z.string().min(1),
+      streamStatus: liveMissionStreamStatusSchema,
+    })
+    .parse({
+      launchId: formData.get("launchId"),
+      streamStatus: formData.get("streamStatus"),
+    })
+
+  await updateLiveMissionStreamStatus(parsed.launchId, parsed.streamStatus, user.id)
+  revalidateLiveMissionAdmin(parsed.launchId)
+}
+
+export async function updateLiveMissionBannerAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const parsed = z
+    .object({
+      launchId: z.string().min(1),
+      publicBannerEn: z.string().trim().optional(),
+      publicBannerRu: z.string().trim().optional(),
+    })
+    .parse({
+      launchId: formData.get("launchId"),
+      publicBannerEn: String(formData.get("publicBannerEn") ?? "") || undefined,
+      publicBannerRu: String(formData.get("publicBannerRu") ?? "") || undefined,
+    })
+
+  await updateLiveMissionBanner({ ...parsed, actorId: user.id })
+  revalidateLiveMissionAdmin(parsed.launchId)
+}
+
+export async function clearLiveMissionBannerAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const launchId = z.string().min(1).parse(formData.get("launchId"))
+
+  await clearLiveMissionBanner(launchId, user.id)
+  revalidateLiveMissionAdmin(launchId)
+}
+
+export async function setLiveMissionActiveEventAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const parsed = z
+    .object({
+      launchId: z.string().min(1),
+      timelineEventId: z.string().min(1),
+    })
+    .parse({
+      launchId: formData.get("launchId"),
+      timelineEventId: formData.get("timelineEventId"),
+    })
+
+  await setLiveMissionActiveEvent({ ...parsed, actorId: user.id })
+  revalidateLiveMissionAdmin(parsed.launchId)
+}
+
+export async function updateLiveTimelineEventStatusAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const parsed = z
+    .object({
+      launchId: z.string().min(1),
+      timelineEventId: z.string().min(1),
+      status: timelineStatusSchema,
+      noteEn: z.string().trim().optional(),
+      noteRu: z.string().trim().optional(),
+    })
+    .parse({
+      launchId: formData.get("launchId"),
+      timelineEventId: formData.get("timelineEventId"),
+      status: formData.get("status"),
+      noteEn: String(formData.get("noteEn") ?? "") || undefined,
+      noteRu: String(formData.get("noteRu") ?? "") || undefined,
+    })
+
+  await updateLiveTimelineEventStatus({ ...parsed, actorId: user.id })
+  revalidateLiveMissionAdmin(parsed.launchId)
+}
+
+export async function completeLiveMissionAction(formData: FormData) {
+  const user = await requireLiveControlRole()
+  const parsed = z
+    .object({
+      launchId: z.string().min(1),
+      result: z.enum(["success", "failure", "partial_success"]),
+    })
+    .parse({
+      launchId: formData.get("launchId"),
+      result: formData.get("result"),
+    })
+
+  await completeLiveMission({ ...parsed, actorId: user.id })
+  revalidateLiveMissionAdmin(parsed.launchId)
 }
 
 export type LaunchStatusForForm = AdminLaunchRecord["status"]

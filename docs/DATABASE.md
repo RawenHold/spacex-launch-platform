@@ -22,6 +22,7 @@ Supabase Auth is not integrated in this stage because there is no Supabase proje
 - `apps/web/prisma/migrations/202605250002_external_sync_foundation/migration.sql` - Launch Library sync run/import record support and import metadata on launches.
 - `apps/web/prisma/migrations/202605250003_youtube_video_records/migration.sql` - YouTube video candidate persistence.
 - `apps/web/prisma/migrations/202605250004_ai_drafts_openai_foundation/migration.sql` - structured AI draft metadata, review fields, and AI audit events.
+- `apps/web/prisma/migrations/202605250005_live_mission_mode/migration.sql` - persistent live mission state and event history.
 - `apps/web/prisma/seed.ts` - safe seed script.
 - `apps/web/prisma.config.ts` - Prisma CLI config and seed path.
 - `apps/web/lib/db.ts` - Prisma Client singleton.
@@ -45,6 +46,8 @@ Implemented persistent models:
 - `ExternalSyncRun`
 - `ExternalImportRecord`
 - `VideoRecord`
+- `LiveMissionState`
+- `LiveMissionEventLog`
 
 The schema stores bilingual fields as JSON with the current shape `{ en, ru }`, while keeping the application types ready for future `es`, `it`, and `fr`.
 
@@ -64,6 +67,8 @@ Mock data is isolated as a development fallback only. If the database has no pub
 Imported external records remain private because they are inserted as unpublished drafts. Public DB queries do not include imported drafts until an admin explicitly approves and publishes them.
 
 Public video embeds are stricter: launch detail pages only expose `VideoRecord` rows where the parent launch is published, the video belongs to that launch, and the video is approved or published. Draft, rejected, archived, or unreviewed YouTube candidates remain admin-only.
+
+Live Mission Mode is also tied to published launches only on public pages. A public launch can show `LiveMissionState` and `LiveMissionEventLog` rows for mission clock, planned timeline progress, admin-confirmed events, stream state, public banners, and replay mode. These rows never imply official telemetry unless a future official telemetry source is explicitly integrated and labeled.
 
 Repository methods:
 
@@ -160,6 +165,29 @@ AI lifecycle events are represented in `AuditLog`:
 - ai_draft_archived
 
 AI-generated content never becomes public by itself. Merge writes only editable draft content, and normal approval/publish workflow remains required.
+
+## Live Mission Mode Tables
+
+`LiveMissionState` stores one durable state row per launch:
+
+- mode: planned, live, replay, paused, completed, scrubbed, or delayed
+- countdown target and optional T-0
+- current mission time and active timeline event
+- current phase and animation progress
+- stream status: unavailable, scheduled, live, ended, or replay
+- public RU/EN banner and internal notes
+- manual override flag and last updater
+
+`LiveMissionEventLog` stores the append-only event history:
+
+- launch and optional timeline event
+- previous/new timeline event status
+- mission time in seconds
+- RU/EN notes
+- source type: planned, admin confirmed, estimated, official source, or manual override
+- actor and timestamp
+
+The event log preserves live-control history even if timeline events are later edited. Public UI labels planned/admin-confirmed/estimated/replay states clearly and does not claim official real-time telemetry.
 
 ## Migrations
 
